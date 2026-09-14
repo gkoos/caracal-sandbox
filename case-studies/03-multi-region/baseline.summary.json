@@ -1,0 +1,212 @@
+{
+  "schema": 1,
+  "runId": "2026-09-14T23-37-25-296_03-multi-region",
+  "demo": "03-multi-region",
+  "title": "A regional failure stays regional",
+  "startedAt": "2026-09-14T23:37:25.296Z",
+  "finishedAt": "2026-09-14T23:37:25.296Z",
+  "library": {
+    "version": "0.4.0",
+    "source": "npm"
+  },
+  "topology": {
+    "policies": "distributed",
+    "scope": "region",
+    "config": {
+      "topology": "distributed",
+      "scope": "region",
+      "namespace": "caracal-demo:2026-09-14T23-37-02-404_03-multi-region",
+      "scope label": "on",
+      "onCoordinatorError": "fail-open",
+      "bulkhead limit": 10,
+      "bulkhead lease": "5000ms",
+      "queue": "none (immediate reject)",
+      "breaker minimum throughput": 20,
+      "breaker failure threshold": 0.5,
+      "breaker open": "3000ms",
+      "breaker half-open probes": 3,
+      "timeout": "2000ms",
+      "retry attempts": 2,
+      "redis command timeout": "1000ms"
+    }
+  },
+  "workload": {
+    "durationMs": 18000,
+    "concurrency": 12,
+    "replicas": 4,
+    "byOperation": {
+      "us": 1489,
+      "eu": 2151
+    }
+  },
+  "client": {
+    "requests": 3640,
+    "success": 2759,
+    "failure": 61,
+    "refusedByReason": {
+      "bulkhead:capacity": 14,
+      "breaker-open": 806
+    },
+    "timedOut": 0,
+    "latencyMs": {
+      "p50": 47,
+      "p95": 56,
+      "p99": 146,
+      "max": 172
+    },
+    "rps": 201
+  },
+  "caracal": {
+    "executionsByOutcome": {
+      "success": 2820,
+      "failure": 820
+    },
+    "attemptsByClassification": {
+      "success": 2759,
+      "retryable": 122
+    },
+    "eventsByType": {
+      "execution.started": 3640,
+      "bulkhead.admitted": 2881,
+      "attempt.started": 2881,
+      "attempt.settled": 2881,
+      "bulkhead.released": 2881,
+      "breaker.observation": 2808,
+      "execution.settled": 3640,
+      "retry.scheduled": 61,
+      "retry.exhausted": 61,
+      "breaker.rejected": 806,
+      "breaker.observation-stale": 12,
+      "bulkhead.rejected": 14,
+      "retry.declined": 14,
+      "breaker.state-changed": 5,
+      "breaker.probe-started": 6
+    },
+    "breakerStateChanges": {
+      "half-open": 2,
+      "open": 2,
+      "closed": 1
+    },
+    "breakerOpens": 2,
+    "breakerOpensByScope": {
+      "region:eu": 2
+    },
+    "breakerRejectionsByState": {
+      "open": 780,
+      "half-open": 26
+    },
+    "bulkheadRejectionsByReason": {
+      "capacity": 14
+    },
+    "bulkheadRejectionsByScope": {
+      "region:us": 13,
+      "region:eu": 1
+    },
+    "peakProbesInFlightByScope": {
+      "region:eu": 2
+    },
+    "leaseLost": 0,
+    "degraded": 0,
+    "staleObservations": 12,
+    "coordinatorErrors": 0,
+    "retriesScheduled": 61,
+    "retriesDeclined": 14,
+    "timeoutsTriggered": 0,
+    "distinctScopes": 2,
+    "maxPermitHoldMs": 65
+  },
+  "checks": [
+    {
+      "name": "witnessPresent",
+      "claim": "the dependency reported its own concurrency",
+      "expected": "present",
+      "actual": "present",
+      "passed": true
+    },
+    {
+      "name": "witnessSamplesAtLeast",
+      "claim": "the dependency took at least 200 samples",
+      "expected": "200",
+      "actual": "1232",
+      "passed": true
+    },
+    {
+      "name": "requestsAtLeast",
+      "claim": "the run issued at least 500 requests",
+      "expected": "500",
+      "actual": "3640",
+      "passed": true
+    },
+    {
+      "name": "breakerOpensInScopeAtLeast",
+      "claim": "scope `region:eu` opened its breaker at least 1 time(s)",
+      "expected": "1",
+      "actual": "2",
+      "passed": true
+    },
+    {
+      "name": "breakerOpensInScopeEquals",
+      "claim": "scope `region:us` opened its breaker exactly 0 time(s)",
+      "expected": "0",
+      "actual": "0",
+      "passed": true
+    },
+    {
+      "name": "eventCountAtLeast",
+      "claim": "the stream contained at least 20 `breaker.rejected` event(s)",
+      "expected": "20",
+      "actual": "806",
+      "passed": true
+    },
+    {
+      "name": "successRateAtLeast",
+      "claim": "at least 70% of calls succeeded",
+      "expected": ">= 70%",
+      "actual": "75.8%",
+      "passed": true
+    },
+    {
+      "name": "breakerOpensAtMost",
+      "claim": "the breaker opened at most 2 time(s)",
+      "expected": "2",
+      "actual": "2",
+      "passed": true
+    },
+    {
+      "name": "coordinatorRoundTripsAtMost",
+      "claim": "at most 8 coordinator round trip(s) per execution",
+      "expected": "8",
+      "actual": "3.59",
+      "passed": true
+    },
+    {
+      "name": "evalshaRatioAtLeast",
+      "claim": "at least 80% of script calls were EVALSHA",
+      "expected": ">= 80%",
+      "actual": "100.0%",
+      "passed": true
+    }
+  ],
+  "passed": true,
+  "notes": [
+    "Does a failure in one region stay in that region?",
+    "runId: 2026-09-14T23-37-02-404_03-multi-region"
+  ],
+  "witness": {
+    "samples": 1232,
+    "peakInFlight": 12,
+    "peakByScope": {
+      "region:us": 10,
+      "region:eu": 10
+    },
+    "requests": 2881,
+    "failures": 122
+  },
+  "coordination": {
+    "commands": 13052,
+    "evalsha": 9408,
+    "eval": 4,
+    "errors": 4,
+    "roundTripsPerExecution": 3.59
+  }
+}

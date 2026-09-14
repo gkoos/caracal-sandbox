@@ -1,0 +1,153 @@
+{
+  "schema": 1,
+  "runId": "2026-09-14T23-38-10-661_05-postgres-permit-hold",
+  "demo": "05-postgres-permit-hold",
+  "title": "A timed-out query still holds its permit",
+  "startedAt": "2026-09-14T23:38:10.661Z",
+  "finishedAt": "2026-09-14T23:38:10.662Z",
+  "library": {
+    "version": "0.4.0",
+    "source": "npm"
+  },
+  "topology": {
+    "policies": "distributed",
+    "scope": "global",
+    "config": {
+      "topology": "distributed",
+      "scope": "global",
+      "namespace": "caracal-demo:2026-09-14T23-37-57-720_05-postgres-permit-hold",
+      "scope label": "on",
+      "onCoordinatorError": "fail-open",
+      "bulkhead limit": 1,
+      "bulkhead lease": "10000ms",
+      "queue": "none (immediate reject)",
+      "breaker minimum throughput": 100,
+      "breaker failure threshold": 0.5,
+      "breaker open": "1000ms",
+      "breaker half-open probes": 3,
+      "timeout": "500ms",
+      "retry attempts": 1,
+      "redis command timeout": "1000ms"
+    }
+  },
+  "workload": {
+    "durationMs": 8000,
+    "concurrency": 4,
+    "replicas": 1,
+    "byOperation": {
+      "report.run": 45
+    }
+  },
+  "client": {
+    "requests": 45,
+    "success": 0,
+    "failure": 0,
+    "refusedByReason": {
+      "bulkhead:capacity": 41
+    },
+    "timedOut": 4,
+    "latencyMs": {
+      "p50": 4,
+      "p95": 513,
+      "p99": 517,
+      "max": 517
+    },
+    "rps": 5
+  },
+  "caracal": {
+    "executionsByOutcome": {
+      "failure": 45
+    },
+    "attemptsByClassification": {
+      "success": 3
+    },
+    "eventsByType": {
+      "execution.started": 45,
+      "bulkhead.admitted": 4,
+      "attempt.started": 4,
+      "bulkhead.rejected": 41,
+      "retry.declined": 41,
+      "execution.settled": 45,
+      "timeout.triggered": 4,
+      "breaker.observation": 4,
+      "attempt.settled": 3,
+      "bulkhead.released": 3
+    },
+    "breakerStateChanges": {},
+    "breakerOpens": 0,
+    "breakerOpensByScope": {},
+    "breakerRejectionsByState": {},
+    "bulkheadRejectionsByReason": {
+      "capacity": 41
+    },
+    "bulkheadRejectionsByScope": {
+      "global": 41
+    },
+    "peakProbesInFlightByScope": {},
+    "leaseLost": 0,
+    "degraded": 0,
+    "staleObservations": 0,
+    "coordinatorErrors": 0,
+    "retriesScheduled": 0,
+    "retriesDeclined": 41,
+    "timeoutsTriggered": 4,
+    "distinctScopes": 1,
+    "maxPermitHoldMs": 2046
+  },
+  "checks": [
+    {
+      "name": "requestsAtLeast",
+      "claim": "the run issued at least 10 requests",
+      "expected": "10",
+      "actual": "45",
+      "passed": true
+    },
+    {
+      "name": "eventCountAtLeast",
+      "claim": "the stream contained at least 3 `timeout.triggered` event(s)",
+      "expected": "3",
+      "actual": "4",
+      "passed": true
+    },
+    {
+      "name": "eventCountAtLeast",
+      "claim": "the stream contained at least 5 `bulkhead.rejected` event(s)",
+      "expected": "5",
+      "actual": "41",
+      "passed": true
+    },
+    {
+      "name": "permitHoldAtLeast",
+      "claim": "a permit was held for at least 1500ms",
+      "expected": "1500",
+      "actual": "2046",
+      "passed": true
+    },
+    {
+      "name": "eventCountAtLeast",
+      "claim": "the stream contained at least 1 `bulkhead.admitted` event(s)",
+      "expected": "1",
+      "actual": "4",
+      "passed": true
+    }
+  ],
+  "passed": true,
+  "notes": [
+    "What does abort: unsupported mean for a distributed bulkhead?",
+    "runId: 2026-09-14T23-37-57-720_05-postgres-permit-hold"
+  ],
+  "witness": {
+    "samples": 541,
+    "peakInFlight": 0,
+    "peakByScope": {},
+    "requests": 0,
+    "failures": 0
+  },
+  "coordination": {
+    "commands": 97,
+    "evalsha": 52,
+    "eval": 0,
+    "errors": 0,
+    "roundTripsPerExecution": 2.16
+  }
+}

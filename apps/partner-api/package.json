@@ -1,0 +1,15 @@
+{
+  "name": "partner-api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The workload every demo runs: same code, topology from configuration.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@gkoos/caracal": "0.4.0",
+    "caracal-observability": "*",
+    "caracal-runner": "*"
+  }
+}

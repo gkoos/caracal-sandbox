@@ -1,0 +1,249 @@
+{
+  "schema": 1,
+  "runId": "2026-09-14T23-37-51-096_04-tenant-isolation",
+  "demo": "04-tenant-isolation",
+  "title": "One noisy tenant cannot spend another's budget",
+  "startedAt": "2026-09-14T23:37:51.096Z",
+  "finishedAt": "2026-09-14T23:37:51.096Z",
+  "library": {
+    "version": "0.4.0",
+    "source": "npm"
+  },
+  "topology": {
+    "policies": "distributed",
+    "scope": "tenant",
+    "config": {
+      "topology": "distributed",
+      "scope": "tenant",
+      "namespace": "caracal-demo:2026-09-14T23-37-31-350_04-tenant-isolation",
+      "scope label": "off (unbounded cardinality)",
+      "onCoordinatorError": "fail-open",
+      "bulkhead limit": 5,
+      "bulkhead lease": "5000ms",
+      "queue": "none (immediate reject)",
+      "breaker minimum throughput": 20,
+      "breaker failure threshold": 0.5,
+      "breaker open": "5000ms",
+      "breaker half-open probes": 3,
+      "timeout": "2000ms",
+      "retry attempts": 2,
+      "redis command timeout": "1000ms"
+    }
+  },
+  "workload": {
+    "durationMs": 15000,
+    "concurrency": 20,
+    "replicas": 4,
+    "byOperation": {
+      "orders.get": 4539
+    }
+  },
+  "client": {
+    "requests": 4539,
+    "success": 4457,
+    "failure": 23,
+    "refusedByReason": {
+      "breaker-open": 59
+    },
+    "timedOut": 0,
+    "latencyMs": {
+      "p50": 47,
+      "p95": 56,
+      "p99": 72,
+      "max": 161
+    },
+    "rps": 301
+  },
+  "caracal": {
+    "executionsByOutcome": {
+      "success": 4480,
+      "failure": 59
+    },
+    "attemptsByClassification": {
+      "success": 4457,
+      "retryable": 46
+    },
+    "eventsByType": {
+      "execution.started": 4539,
+      "bulkhead.admitted": 4503,
+      "attempt.started": 4503,
+      "attempt.settled": 4503,
+      "bulkhead.released": 4503,
+      "breaker.observation": 4479,
+      "execution.settled": 4539,
+      "retry.scheduled": 23,
+      "retry.exhausted": 23,
+      "breaker.rejected": 59,
+      "breaker.state-changed": 5,
+      "breaker.probe-started": 3,
+      "breaker.observation-stale": 1
+    },
+    "breakerStateChanges": {
+      "half-open": 2,
+      "open": 3
+    },
+    "breakerOpens": 3,
+    "breakerOpensByScope": {
+      "tenant:t-49": 3
+    },
+    "breakerRejectionsByState": {
+      "open": 59
+    },
+    "bulkheadRejectionsByReason": {},
+    "bulkheadRejectionsByScope": {},
+    "peakProbesInFlightByScope": {
+      "tenant:t-49": 1
+    },
+    "leaseLost": 0,
+    "degraded": 0,
+    "staleObservations": 1,
+    "coordinatorErrors": 0,
+    "retriesScheduled": 23,
+    "retriesDeclined": 0,
+    "timeoutsTriggered": 0,
+    "distinctScopes": 50,
+    "maxPermitHoldMs": 76
+  },
+  "checks": [
+    {
+      "name": "witnessPresent",
+      "claim": "the dependency reported its own concurrency",
+      "expected": "present",
+      "actual": "present",
+      "passed": true
+    },
+    {
+      "name": "witnessSamplesAtLeast",
+      "claim": "the dependency took at least 200 samples",
+      "expected": "200",
+      "actual": "1138",
+      "passed": true
+    },
+    {
+      "name": "requestsAtLeast",
+      "claim": "the run issued at least 1000 requests",
+      "expected": "1000",
+      "actual": "4539",
+      "passed": true
+    },
+    {
+      "name": "breakerOpensInScopeAtLeast",
+      "claim": "scope `tenant:t-49` opened its breaker at least 1 time(s)",
+      "expected": "1",
+      "actual": "3",
+      "passed": true
+    },
+    {
+      "name": "scopesThatOpenedEquals",
+      "claim": "exactly 1 scope(s) opened a breaker",
+      "expected": "1",
+      "actual": "1",
+      "passed": true
+    },
+    {
+      "name": "distinctScopesAtLeast",
+      "claim": "the stream touched at least 40 distinct scope(s)",
+      "expected": "40",
+      "actual": "50",
+      "passed": true
+    },
+    {
+      "name": "successRateAtLeast",
+      "claim": "at least 90% of calls succeeded",
+      "expected": ">= 90%",
+      "actual": "98.2%",
+      "passed": true
+    },
+    {
+      "name": "breakerOpensAtMost",
+      "claim": "the breaker opened at most 3 time(s)",
+      "expected": "3",
+      "actual": "3",
+      "passed": true
+    },
+    {
+      "name": "coordinatorRoundTripsAtMost",
+      "claim": "at most 8 coordinator round trip(s) per execution",
+      "expected": "8",
+      "actual": "3.99",
+      "passed": true
+    },
+    {
+      "name": "evalshaRatioAtLeast",
+      "claim": "at least 80% of script calls were EVALSHA",
+      "expected": ">= 80%",
+      "actual": "100.0%",
+      "passed": true
+    }
+  ],
+  "passed": true,
+  "notes": [
+    "Does one tenant's failure stay in its own scope?",
+    "runId: 2026-09-14T23-37-31-350_04-tenant-isolation"
+  ],
+  "witness": {
+    "samples": 1138,
+    "peakInFlight": 20,
+    "peakByScope": {
+      "tenant:t-20": 3,
+      "tenant:t-48": 3,
+      "tenant:t-27": 3,
+      "tenant:t-9": 3,
+      "tenant:t-26": 3,
+      "tenant:t-12": 2,
+      "tenant:t-7": 3,
+      "tenant:t-34": 3,
+      "tenant:t-45": 3,
+      "tenant:t-46": 3,
+      "tenant:t-1": 3,
+      "tenant:t-18": 2,
+      "tenant:t-47": 2,
+      "tenant:t-8": 3,
+      "tenant:t-16": 3,
+      "tenant:t-6": 3,
+      "tenant:t-2": 3,
+      "tenant:t-41": 3,
+      "tenant:t-0": 3,
+      "tenant:t-21": 4,
+      "tenant:t-32": 4,
+      "tenant:t-36": 3,
+      "tenant:t-30": 3,
+      "tenant:t-49": 2,
+      "tenant:t-25": 3,
+      "tenant:t-19": 3,
+      "tenant:t-43": 3,
+      "tenant:t-29": 3,
+      "tenant:t-3": 3,
+      "tenant:t-5": 3,
+      "tenant:t-24": 3,
+      "tenant:t-40": 3,
+      "tenant:t-38": 3,
+      "tenant:t-23": 3,
+      "tenant:t-44": 3,
+      "tenant:t-42": 3,
+      "tenant:t-15": 2,
+      "tenant:t-31": 3,
+      "tenant:t-39": 3,
+      "tenant:t-4": 3,
+      "tenant:t-35": 2,
+      "tenant:t-13": 3,
+      "tenant:t-14": 3,
+      "tenant:t-37": 3,
+      "tenant:t-10": 3,
+      "tenant:t-33": 3,
+      "tenant:t-22": 3,
+      "tenant:t-11": 4,
+      "tenant:t-28": 3,
+      "tenant:t-17": 3
+    },
+    "requests": 4503,
+    "failures": 46
+  },
+  "coordination": {
+    "commands": 18089,
+    "evalsha": 13548,
+    "eval": 2,
+    "errors": 2,
+    "roundTripsPerExecution": 3.99
+  }
+}

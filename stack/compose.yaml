@@ -1,0 +1,144 @@
+# The demo stack: infrastructure only. Workloads (partner-api replicas, loadgen,
+# downstream-mock) run on the host by default - see README.md and docs/idea.md.
+#
+#   npm run stack:up                        # core: valkey, valkey-eu, postgres, otel, jaeger, prometheus, grafana
+#   npm run stack:up -- --profile chaos     # + toxiproxy (Redis network chaos, demo 06)
+#   npm run stack:up -- --profile cluster   # + a three-master Valkey cluster (demo 07)
+name: caracal-demo
+
+services:
+  # The shared coordinator: one Valkey for the whole fleet. `scope` decides whose
+  # state lives under which key, not which server it lives on.
+  valkey:
+    image: valkey/valkey:8-alpine
+    command: ["valkey-server", "--save", "", "--appendonly", "no"]
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 2s
+      timeout: 2s
+      retries: 15
+    tmpfs:
+      - /data
+
+  # A second coordinator, used by 03-multi-region to show that an in-region
+  # coordinator going away is a regional failure, not a global one.
+  valkey-eu:
+    image: valkey/valkey:8-alpine
+    command: ["valkey-server", "--save", "", "--appendonly", "no"]
+    ports:
+      - "6381:6379"
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 2s
+      timeout: 2s
+      retries: 15
+    tmpfs:
+      - /data
+
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: caracal
+      POSTGRES_PASSWORD: caracal
+      POSTGRES_DB: caracal
+    command:
+      [
+        "postgres",
+        "-c",
+        "max_connections=40",
+        "-c",
+        "log_min_duration_statement=250",
+      ]
+    ports:
+      # 5433 so this stack can run beside the caracal repository's own compose file.
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U caracal -d caracal"]
+      interval: 2s
+      timeout: 2s
+      retries: 15
+    tmpfs:
+      - /var/lib/postgresql/data
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.106.1
+    command: ["--config=/etc/otelcol-contrib/config.yaml"]
+    volumes:
+      - ./otel/config.yaml:/etc/otelcol-contrib/config.yaml:ro
+    ports:
+      - "4317:4317" # OTLP gRPC
+      - "4318:4318" # OTLP HTTP - what caracal-observability exports to
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.58
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "16686:16686" # UI
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    # Lets the downstream-mock scrape target (host.docker.internal) resolve on
+    # Linux hosts too, not just Docker Desktop.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  grafana:
+    image: grafana/grafana:11.2.2
+    depends_on:
+      - prometheus
+      - jaeger
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: "Admin"
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+      GF_AUTH_BASIC_ENABLED: "false"
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/caracal-overview.json
+    volumes:
+      - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "3000:3000"
+
+  # Redis-side network chaos: latency, timeouts, hard closes. Driven over its
+  # HTTP API by apps/chaos-runner, so no `tc`, no container exec.
+  toxiproxy:
+    image: ghcr.io/shopify/toxiproxy:2.12.0
+    profiles: ["chaos"]
+    command: ["-host", "0.0.0.0", "-config", "/config/config.json"]
+    volumes:
+      - ./toxiproxy/config.json:/config/config.json:ro
+    ports:
+      - "8474:8474" # control API
+      - "6380:6380" # proxy in front of valkey:6379
+
+  # Three masters in one container, same layout as the caracal repository's
+  # compose.cluster.yaml, for 07-cluster.
+  valkey-cluster:
+    image: valkey/valkey:8-alpine
+    profiles: ["cluster"]
+    command: ["sh", "/cluster/start.sh"]
+    volumes:
+      - ./cluster/start.sh:/cluster/start.sh:ro
+    ports:
+      - "7000-7002:7000-7002"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "valkey-cli -p 7000 cluster info | grep -q cluster_state:ok",
+        ]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+    tmpfs:
+      - /data

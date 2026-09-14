@@ -1,0 +1,63 @@
+# The third demo: a regional failure stays regional.
+#
+# Same distributed setup as 02, but the scope is `region:${region}` and the eu
+# region has its own coordinator (its own Valkey). Partway through the run the
+# eu *dependency* fails; eu's breaker opens and sheds, while us keeps flowing.
+#
+# This is the whole point of `scope`: the failure domain matches the failure.
+# Two regions, two independent breaker windows, one shared dependency counter
+# (the witness) that can tell them apart.
+#
+#   npm run demo 03
+#   npm run demo 03 -- --live              # watch eu shed / us flow in Grafana
+id: "03-multi-region"
+title: "A regional failure stays regional"
+question: "Does a failure in one region stay in that region?"
+
+topology:
+  policies: distributed
+  scope: region
+  replicas: 4
+  env:
+    REDIS_URL: "redis://127.0.0.1:6379"        # us: the default coordinator
+    REDIS_URL_REGION_EU: "redis://127.0.0.1:6381" # eu: its own coordinator (valkey-eu)
+    BULKHEAD_LIMIT: "10"
+    BULKHEAD_LEASE_MS: "5000"
+    POLICY_TIMEOUT_MS: "2000"
+    RETRY_MAX_ATTEMPTS: "2"
+    BREAKER_MINIMUM_THROUGHPUT: "20"
+    BREAKER_FAILURE_THRESHOLD: "0.5"
+    BREAKER_OPEN_MS: "3000"
+
+scenario:
+  durationMs: 18000
+  concurrency: 12
+  targetRps: 200
+  seed: 3
+  operations:
+    - { name: "eu", method: GET, path: "/orders/{id}", weight: 6, region: "eu" }
+    - { name: "us", method: GET, path: "/orders/{id}", weight: 4, region: "us" }
+  dependency:
+    latencyMs: 30
+    failureRate: 0
+
+# Break eu's dependency at 4s, restore it at 11s.
+timeline:
+  - { at: 4000, action: "dependency.failRegions", regions: ["eu"] }
+  - { at: 11000, action: "dependency.failRegions", regions: [] }
+
+checks:
+  - { name: witnessPresent }
+  - { name: witnessSamplesAtLeast, params: { value: 200 } }
+  - { name: requestsAtLeast, params: { value: 500 } }
+  # Blast radius, from the breaker's own state: eu trips, us does not.
+  - { name: breakerOpensInScopeAtLeast, params: { scope: "region:eu", value: 1 } }
+  - { name: breakerOpensInScopeEquals, params: { scope: "region:us", value: 0 } }
+  # eu shed some traffic while its breaker was open.
+  - { name: eventCountAtLeast, params: { type: "breaker.rejected", value: 20 } }
+  # The combined success rate: us (~40%) never fails, eu (~60%) fails only
+  # during the broken window, so the fleet stays well above half.
+  - { name: successRateAtLeast, params: { value: 0.7 } }
+  - { name: breakerOpensAtMost, params: { value: 2 } }
+  - { name: coordinatorRoundTripsAtMost, params: { value: 8 } }
+  - { name: evalshaRatioAtLeast, params: { value: 0.8 } }

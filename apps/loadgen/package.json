@@ -1,0 +1,13 @@
+{
+  "name": "loadgen",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The traffic driver: tagged requests against partner-api, plus the client view.",
+  "exports": {
+    ".": "./src/main.ts"
+  },
+  "dependencies": {
+    "caracal-runner": "*"
+  }
+}

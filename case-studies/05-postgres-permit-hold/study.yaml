@@ -1,0 +1,46 @@
+# The fifth demo: a timed-out query still holds its permit.
+#
+# `postgresAdapter` declares `abort: "unsupported"`: a deadline expires and the
+# caller gets a TimeoutError on schedule, but the underlying query keeps running,
+# and the distributed bulkhead permit it holds is not released until the query
+# actually settles. A 2s query behind a 500ms timeout holds a limit-1 permit for
+# ~2s, not ~500ms.
+#
+#   npm run demo 05
+id: "05-postgres-permit-hold"
+title: "A timed-out query still holds its permit"
+question: "What does abort: unsupported mean for a distributed bulkhead?"
+
+topology:
+  policies: distributed
+  scope: global
+  replicas: 1
+  env:
+    REDIS_URL: "redis://127.0.0.1:6379"
+    POSTGRES_URL: "postgres://caracal:caracal@127.0.0.1:5433/caracal"
+    BULKHEAD_LIMIT: "1"          # one permit: the hold becomes visible
+    BULKHEAD_LEASE_MS: "10000"
+    POLICY_TIMEOUT_MS: "500"     # the caller gives up here...
+    RETRY_MAX_ATTEMPTS: "1"
+    BREAKER_MINIMUM_THROUGHPUT: "100"  # ...and the breaker stays out of it
+    BREAKER_FAILURE_THRESHOLD: "0.5"
+    BREAKER_OPEN_MS: "1000"
+
+scenario:
+  durationMs: 8000
+  concurrency: 4
+  targetRps: 4
+  seed: 1
+  operations:
+    # A 2s query behind a 500ms timeout.
+    - { name: "report.run", method: GET, path: "/report/run?seconds=2", weight: 1 }
+
+checks:
+  - { name: requestsAtLeast, params: { value: 10 } }
+  # The caller timed out...
+  - { name: eventCountAtLeast, params: { type: "timeout.triggered", value: 3 } }
+  # ...but the permit was still held, so other callers were shed.
+  - { name: eventCountAtLeast, params: { type: "bulkhead.rejected", value: 5 } }
+  # And the permit was held for the full ~2s query, not the 500ms timeout.
+  - { name: permitHoldAtLeast, params: { value: 1500 } }
+  - { name: eventCountAtLeast, params: { type: "bulkhead.admitted", value: 1 } }

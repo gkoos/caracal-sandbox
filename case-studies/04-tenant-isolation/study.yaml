@@ -1,0 +1,55 @@
+# The fourth demo: one noisy tenant cannot spend another's budget.
+#
+# Scope by `tenant:${tenantId}`. The load is spread over 50 tenants; one of them
+# (`t-49`) is noisy - the dependency fails it on every call. Its breaker opens and
+# sheds *only* its own traffic, while the other 49 tenants never trip.
+#
+# The cardinality is the point of the tenant axis: 50 tenants means 50 coordination
+# identities in Redis, and (by default) 50 `scope` label values in Prometheus.
+#
+#   npm run demo 04
+id: "04-tenant-isolation"
+title: "One noisy tenant cannot spend another's budget"
+question: "Does one tenant's failure stay in its own scope?"
+
+topology:
+  policies: distributed
+  scope: tenant
+  replicas: 4
+  env:
+    REDIS_URL: "redis://127.0.0.1:6379"
+    BULKHEAD_LIMIT: "5"          # per-tenant budget
+    BULKHEAD_LEASE_MS: "5000"
+    POLICY_TIMEOUT_MS: "2000"
+    RETRY_MAX_ATTEMPTS: "2"
+    BREAKER_MINIMUM_THROUGHPUT: "20"
+    BREAKER_FAILURE_THRESHOLD: "0.5"
+    BREAKER_OPEN_MS: "5000"
+
+scenario:
+  durationMs: 15000
+  concurrency: 20
+  targetRps: 300
+  seed: 7
+  tenantPool: { prefix: "t-", count: 50 }
+  operations:
+    - { name: "orders.get", method: GET, path: "/orders/{id}", weight: 1 }
+  dependency:
+    latencyMs: 30
+    failureRate: 0
+    failTenants: ["t-49"]        # one noisy tenant, always failing
+
+checks:
+  - { name: witnessPresent }
+  - { name: witnessSamplesAtLeast, params: { value: 200 } }
+  - { name: requestsAtLeast, params: { value: 1000 } }
+  # Blast radius: the noisy tenant trips, and it is the only scope that does.
+  - { name: breakerOpensInScopeAtLeast, params: { scope: "tenant:t-49", value: 1 } }
+  - { name: scopesThatOpenedEquals, params: { value: 1 } }
+  # Cardinality: the stream really did touch (most of) the 50 tenants.
+  - { name: distinctScopesAtLeast, params: { value: 40 } }
+  # Only the noisy tenant fails, so the fleet stays near 100%.
+  - { name: successRateAtLeast, params: { value: 0.9 } }
+  - { name: breakerOpensAtMost, params: { value: 3 } }
+  - { name: coordinatorRoundTripsAtMost, params: { value: 8 } }
+  - { name: evalshaRatioAtLeast, params: { value: 0.8 } }

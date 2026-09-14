@@ -1,0 +1,47 @@
+# The eighth study: a budget above the dependency's real capacity overloads it.
+#
+# Studies 01-07 keep the dependency well under its ceiling, so it never fails. Here
+# the distributed budget is 20 while the dependency can only serve 8 concurrent - so
+# the dependency refuses the excess (503), and the client sees real failures, not
+# just policy shedding. This is the *why* of study 02's limit of 5.
+#
+#   npm run demo 08
+#   npm run compare 02 08    # budget 5 (healthy) vs budget 20 (overloaded)
+id: "08-overload"
+title: "A budget above capacity overloads the dependency"
+question: "What happens when the budget lets more through than the dependency can serve?"
+
+topology:
+  policies: distributed
+  scope: global
+  replicas: 4
+  env:
+    REDIS_URL: "redis://127.0.0.1:6379"
+    BULKHEAD_LIMIT: "20"          # 4x the dependency's real capacity of 8
+    BULKHEAD_LEASE_MS: "5000"
+    POLICY_TIMEOUT_MS: "2000"
+    RETRY_MAX_ATTEMPTS: "1"       # no retry: the overload is the signal
+    BREAKER_MINIMUM_THROUGHPUT: "100000"  # keep the breaker out of it
+    BREAKER_FAILURE_THRESHOLD: "0.5"
+    BREAKER_OPEN_MS: "3000"
+
+scenario:
+  durationMs: 15000
+  concurrency: 20
+  targetRps: 400
+  seed: 1
+  operations:
+    - { name: "orders.get", method: GET, path: "/orders/{id}", weight: 1 }
+  dependency:
+    latencyMs: 30
+    failureRate: 0
+    capacity: 8                  # the dependency refuses beyond 8 concurrent
+
+checks:
+  - { name: witnessPresent }
+  - { name: witnessSamplesAtLeast, params: { value: 200 } }
+  - { name: requestsAtLeast, params: { value: 500 } }
+  # The overload's signature: the dependency itself failed requests.
+  - { name: witnessFailuresAtLeast, params: { value: 100 } }
+  # ...and the client saw the failures, not just policy shedding.
+  - { name: successRateAtMost, params: { value: 0.9 } }

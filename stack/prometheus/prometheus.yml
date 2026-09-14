@@ -1,0 +1,20 @@
+global:
+  scrape_interval: 2s
+  evaluation_interval: 5s
+
+scrape_configs:
+  # Everything caracal-observability emits lands here: the collector receives
+  # OTLP from the workloads and re-exposes it in Prometheus format.
+  - job_name: otel-collector
+    static_configs:
+      - targets:
+          - otel-collector:8889
+
+  # The witness: downstream-mock runs on the host (started by `npm run demo`),
+  # so Prometheus reaches it through Docker's host gateway. Its own concurrency
+  # count is the independent measurement the dashboard's witness panel draws.
+  - job_name: downstream-mock
+    metrics_path: /_metrics
+    static_configs:
+      - targets:
+          - host.docker.internal:4200

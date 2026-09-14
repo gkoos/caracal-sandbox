@@ -1,0 +1,169 @@
+{
+  "schema": 1,
+  "runId": "2026-09-14T23-36-27-732_01-local-only",
+  "demo": "01-local-only",
+  "title": "Local policies, no Redis",
+  "startedAt": "2026-09-14T23:36:27.732Z",
+  "finishedAt": "2026-09-14T23:36:27.733Z",
+  "library": {
+    "version": "0.4.0",
+    "source": "npm"
+  },
+  "topology": {
+    "policies": "local",
+    "scope": "global",
+    "config": {
+      "topology": "local",
+      "scope": "global",
+      "namespace": "caracal-demo:2026-09-14T23-36-07-808_01-local-only",
+      "scope label": "on",
+      "onCoordinatorError": "fail-open",
+      "bulkhead limit": 5,
+      "bulkhead lease": "5000ms",
+      "queue": "none (immediate reject)",
+      "breaker minimum throughput": 20,
+      "breaker failure threshold": 0.5,
+      "breaker open": "5000ms",
+      "breaker half-open probes": 3,
+      "timeout": "2000ms",
+      "retry attempts": 2,
+      "redis command timeout": "1000ms"
+    }
+  },
+  "workload": {
+    "durationMs": 15000,
+    "concurrency": 20,
+    "replicas": 4,
+    "byOperation": {
+      "orders.get": 5958
+    }
+  },
+  "client": {
+    "requests": 5958,
+    "success": 5876,
+    "failure": 0,
+    "refusedByReason": {
+      "bulkhead:capacity": 82
+    },
+    "timedOut": 0,
+    "latencyMs": {
+      "p50": 47,
+      "p95": 50,
+      "p99": 54,
+      "max": 68
+    },
+    "rps": 396
+  },
+  "caracal": {
+    "executionsByOutcome": {
+      "success": 5876,
+      "failure": 82
+    },
+    "attemptsByClassification": {
+      "success": 5876
+    },
+    "eventsByType": {
+      "execution.started": 5958,
+      "bulkhead.admitted": 5876,
+      "attempt.started": 5876,
+      "attempt.settled": 5876,
+      "bulkhead.released": 5876,
+      "breaker.observation": 5876,
+      "execution.settled": 5958,
+      "bulkhead.rejected": 82,
+      "retry.declined": 82
+    },
+    "breakerStateChanges": {},
+    "breakerOpens": 0,
+    "breakerOpensByScope": {},
+    "breakerRejectionsByState": {},
+    "bulkheadRejectionsByReason": {
+      "capacity": 82
+    },
+    "bulkheadRejectionsByScope": {
+      "process": 82
+    },
+    "peakProbesInFlightByScope": {},
+    "leaseLost": 0,
+    "degraded": 0,
+    "staleObservations": 0,
+    "coordinatorErrors": 0,
+    "retriesScheduled": 0,
+    "retriesDeclined": 82,
+    "timeoutsTriggered": 0,
+    "distinctScopes": 1,
+    "maxPermitHoldMs": 61
+  },
+  "checks": [
+    {
+      "name": "witnessPresent",
+      "claim": "the dependency reported its own concurrency",
+      "expected": "present",
+      "actual": "present",
+      "passed": true
+    },
+    {
+      "name": "witnessSamplesAtLeast",
+      "claim": "the dependency took at least 200 samples",
+      "expected": "200",
+      "actual": "978",
+      "passed": true
+    },
+    {
+      "name": "peakInFlightAtLeast",
+      "claim": "the dependency saw at least 12 concurrent calls",
+      "expected": "12",
+      "actual": "20",
+      "passed": true
+    },
+    {
+      "name": "peakInFlightAtMost",
+      "claim": "the dependency never saw more than 24 concurrent calls",
+      "expected": "24",
+      "actual": "20",
+      "passed": true
+    },
+    {
+      "name": "requestsAtLeast",
+      "claim": "the run issued at least 500 requests",
+      "expected": "500",
+      "actual": "5958",
+      "passed": true
+    },
+    {
+      "name": "successRateAtLeast",
+      "claim": "at least 90% of calls succeeded",
+      "expected": ">= 90%",
+      "actual": "98.6%",
+      "passed": true
+    },
+    {
+      "name": "refusedAtMost",
+      "claim": "at most 150 call(s) were refused by a policy",
+      "expected": "150",
+      "actual": "82",
+      "passed": true
+    },
+    {
+      "name": "breakerOpensEquals",
+      "claim": "the failure opened the breaker exactly 0 time(s)",
+      "expected": "0",
+      "actual": "0",
+      "passed": true
+    }
+  ],
+  "passed": true,
+  "notes": [
+    "What does a per-process limit mean when there are four processes?",
+    "runId: 2026-09-14T23-36-07-808_01-local-only"
+  ],
+  "witness": {
+    "samples": 978,
+    "peakInFlight": 20,
+    "peakByScope": {
+      "global": 20
+    },
+    "requests": 5876,
+    "failures": 0
+  }
+}

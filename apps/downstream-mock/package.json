@@ -1,0 +1,7 @@
+{
+  "name": "downstream-mock",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The flaky dependency every demo calls - and the witness that measures itself."
+}

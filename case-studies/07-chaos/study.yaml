@@ -1,0 +1,59 @@
+# The seventh demo: the invariants hold while things die.
+#
+# The headline guarantee of the library: with a distributed bulkhead at limit 3,
+# the live lease count never exceeds 3 - and returns to 0 - while a worker is
+# killed mid-permit and another is frozen past its lease.
+#
+# The witness here is Redis itself: the orchestrator samples the live (non-expired)
+# lease count on the coordinator's own clock, independent of the replicas and the
+# load.
+#
+#   npm run demo 07
+id: "07-chaos"
+title: "The invariants hold while things die"
+question: "Does the shared budget survive a killed worker and a frozen worker?"
+
+topology:
+  policies: distributed
+  scope: global
+  replicas: 4
+  env:
+    REDIS_URL: "redis://127.0.0.1:6379"
+    BULKHEAD_LIMIT: "3"
+    BULKHEAD_LEASE_MS: "600"      # short, so a freeze (1500ms) outlives the lease
+    POLICY_TIMEOUT_MS: "3000"
+    RETRY_MAX_ATTEMPTS: "1"
+    BREAKER_MINIMUM_THROUGHPUT: "100"
+    BREAKER_FAILURE_THRESHOLD: "0.5"
+    BREAKER_OPEN_MS: "1000"
+
+scenario:
+  durationMs: 12000
+  concurrency: 12
+  targetRps: 40
+  seed: 11
+  operations:
+    - { name: "orders.get", method: GET, path: "/orders/{id}", weight: 1 }
+  dependency:
+    latencyMs: 200
+    failureRate: 0
+
+# 3s: kill a replica mid-permit (SIGKILL - its lease must expire on its own).
+# 5s: freeze another past its lease (no renewals can fire - the lease is lost).
+timeline:
+  - { at: 3000, action: "replica.kill", replica: 0 }
+  - { at: 5000, action: "replica.freeze", replica: 1, ms: 1500 }
+
+chaos:
+  limit: 3
+
+checks:
+  - { name: requestsAtLeast, params: { value: 200 } }
+  # The sampler is the witness: enough samples to be evidence.
+  - { name: chaosSamplesAtLeast, params: { value: 50 } }
+  # THE invariant: chaos never over-admits.
+  - { name: maxLiveLeasesAtMost, params: { value: 3 } }
+  # No leak: every permit was released or expired by the end.
+  - { name: finalLiveLeasesEquals, params: { value: 0 } }
+  # The frozen worker actually lost its lease.
+  - { name: eventCountAtLeast, params: { type: "bulkhead.lease-lost", value: 1 } }

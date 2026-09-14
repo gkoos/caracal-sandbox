@@ -1,0 +1,13 @@
+apiVersion: 1
+
+providers:
+  - name: caracal
+    orgId: 1
+    folder: Caracal
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 5
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: false

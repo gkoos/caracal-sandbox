@@ -1,0 +1,8 @@
+[
+  {
+    "name": "valkey",
+    "listen": "0.0.0.0:6380",
+    "upstream": "valkey:6379",
+    "enabled": true
+  }
+]

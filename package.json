@@ -1,0 +1,57 @@
+{
+  "name": "caracal-sandbox",
+  "version": "0.0.0",
+  "private": true,
+  "description": "A sandbox for exploring @gkoos/caracal, a distributed resilience library.",
+  "type": "module",
+  "engines": {
+    "node": ">=20.3.0"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "verify:api": "node --import tsx scripts/verify-api.mjs",
+    "stack:up": "node scripts/stack.mjs up",
+    "stack:down": "node scripts/stack.mjs down",
+    "stack:reset": "node scripts/stack.mjs reset",
+    "stack:ps": "node scripts/stack.mjs ps",
+    "stack:logs": "node scripts/stack.mjs logs",
+    "smoke": "node --import tsx scripts/smoke.mjs",
+    "smoke:distributed": "node --import tsx scripts/smoke.mjs --topology=distributed",
+    "smoke:breaker": "node --import tsx scripts/smoke.mjs --failure-rate=0.6 --retry-attempts=1",
+    "diagnose:otel": "node scripts/diagnose-otel.mjs",
+    "observability": "node --import tsx scripts/observability.mjs",
+    "diagrams": "node scripts/diagrams.mjs",
+    "demo": "node --import tsx scripts/demo.mjs",
+    "compare": "node --import tsx packages/caracal-runner/bin/compare.mjs",
+    "baseline": "node --import tsx scripts/baseline.mjs",
+    "typecheck": "tsc --noEmit",
+    "format": "biome format --write .",
+    "format:check": "biome format .",
+    "lint": "biome lint .",
+    "check": "npm run format:check && npm run lint && npm run typecheck",
+    "link:local": "node scripts/link-local.mjs local",
+    "link:npm": "node scripts/link-local.mjs npm"
+  },
+  "dependencies": {
+    "@gkoos/caracal": "0.4.0",
+    "@opentelemetry/api": "^1.9.1",
+    "@opentelemetry/exporter-metrics-otlp-http": "^0.222.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.222.0",
+    "@opentelemetry/resources": "^2.11.0",
+    "@opentelemetry/sdk-metrics": "^2.11.0",
+    "@opentelemetry/sdk-node": "^0.222.0",
+    "ioredis": "^6.0.0",
+    "pg": "^8.23.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.13",
+    "@types/node": "^24.0.0",
+    "@types/pg": "^8.23.0",
+    "tsx": "^4.23.13",
+    "typescript": "^5.9.0",
+    "yaml": "^2.8.1"
+  }
+}

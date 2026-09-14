@@ -1,0 +1,47 @@
+# The first demo: local policies, no Redis.
+#
+# Claim: a per-process limit is a per-process limit. With four replicas each
+# enforcing `bulkhead.local({ limit: 5 })`, the dependency can still see ~20
+# concurrent calls - the limit multiplied, not the limit shared.
+#
+#   npm run demo 01
+#   npm run demo 01 -- --duration=5000     # shorter
+#   npm run demo 01 -- --live              # leave it running, watch Grafana
+id: "01-local-only"
+title: "Local policies, no Redis"
+question: "What does a per-process limit mean when there are four processes?"
+
+topology:
+  policies: local
+  scope: global
+  replicas: 4
+  env:
+    BULKHEAD_LIMIT: "5"          # 5 per process
+    POLICY_TIMEOUT_MS: "2000"
+    RETRY_MAX_ATTEMPTS: "2"
+
+scenario:
+  durationMs: 15000
+  concurrency: 20                # total across replicas: ~5 per replica
+  targetRps: 400                 # same offered load as 02, for a fair comparison
+  seed: 1
+  operations:
+    - { name: "orders.get", method: GET, path: "/orders/{id}", weight: 1 }
+  dependency:
+    latencyMs: 30
+    failureRate: 0               # a healthy dependency: the breaker must not open
+
+checks:
+  - { name: witnessPresent }
+  - { name: witnessSamplesAtLeast, params: { value: 200 } }
+  # The headline: four processes x limit 5 = the downstream sees up to ~20, not 5.
+  - { name: peakInFlightAtLeast, params: { value: 12 } }
+  - { name: peakInFlightAtMost, params: { value: 24 } }
+  - { name: requestsAtLeast, params: { value: 500 } }
+  # A burst to one replica sheds locally even while the fleet is under 20 - that
+  # is the point: a local limit cannot share spare capacity across processes.
+  - { name: successRateAtLeast, params: { value: 0.9 } }
+  - { name: refusedAtMost, params: { value: 150 } }
+  # Shedding ~3% of calls is nowhere near the breaker's threshold, so the
+  # dependency is never misreported as unhealthy.
+  - { name: breakerOpensEquals, params: { value: 0 } }

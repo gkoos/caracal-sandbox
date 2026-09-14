@@ -1,0 +1,169 @@
+{
+  "schema": 1,
+  "runId": "2026-09-14T23-38-39-190_07-chaos",
+  "demo": "07-chaos",
+  "title": "The invariants hold while things die",
+  "startedAt": "2026-09-14T23:38:39.190Z",
+  "finishedAt": "2026-09-14T23:38:39.190Z",
+  "library": {
+    "version": "0.4.0",
+    "source": "npm"
+  },
+  "topology": {
+    "policies": "distributed",
+    "scope": "global",
+    "config": {
+      "topology": "distributed",
+      "scope": "global",
+      "namespace": "caracal-demo:2026-09-14T23-38-21-076_07-chaos",
+      "scope label": "on",
+      "onCoordinatorError": "fail-open",
+      "bulkhead limit": 3,
+      "bulkhead lease": "600ms",
+      "queue": "none (immediate reject)",
+      "breaker minimum throughput": 100,
+      "breaker failure threshold": 0.5,
+      "breaker open": "1000ms",
+      "breaker half-open probes": 3,
+      "timeout": "3000ms",
+      "retry attempts": 1,
+      "redis command timeout": "1000ms"
+    }
+  },
+  "workload": {
+    "durationMs": 12000,
+    "concurrency": 12,
+    "replicas": 4,
+    "byOperation": {
+      "orders.get": 628
+    }
+  },
+  "client": {
+    "requests": 628,
+    "success": 128,
+    "failure": 117,
+    "refusedByReason": {
+      "bulkhead:capacity": 382,
+      "bulkhead:lease-lost": 1
+    },
+    "timedOut": 0,
+    "latencyMs": {
+      "p50": 3,
+      "p95": 296,
+      "p99": 968,
+      "max": 1765
+    },
+    "rps": 50
+  },
+  "caracal": {
+    "executionsByOutcome": {
+      "failure": 381,
+      "success": 128
+    },
+    "attemptsByClassification": {
+      "success": 128,
+      "ignored": 1
+    },
+    "eventsByType": {
+      "execution.started": 509,
+      "bulkhead.admitted": 129,
+      "attempt.started": 129,
+      "bulkhead.rejected": 380,
+      "retry.declined": 381,
+      "execution.settled": 509,
+      "attempt.settled": 129,
+      "bulkhead.released": 129,
+      "breaker.observation": 128,
+      "bulkhead.lease-lost": 1,
+      "bulkhead.degraded": 1
+    },
+    "breakerStateChanges": {},
+    "breakerOpens": 0,
+    "breakerOpensByScope": {},
+    "breakerRejectionsByState": {},
+    "bulkheadRejectionsByReason": {
+      "capacity": 380
+    },
+    "bulkheadRejectionsByScope": {
+      "global": 380
+    },
+    "peakProbesInFlightByScope": {},
+    "leaseLost": 1,
+    "degraded": 1,
+    "staleObservations": 0,
+    "coordinatorErrors": 0,
+    "retriesScheduled": 0,
+    "retriesDeclined": 381,
+    "timeoutsTriggered": 0,
+    "distinctScopes": 1,
+    "maxPermitHoldMs": 1762
+  },
+  "checks": [
+    {
+      "name": "requestsAtLeast",
+      "claim": "the run issued at least 200 requests",
+      "expected": "200",
+      "actual": "628",
+      "passed": true
+    },
+    {
+      "name": "chaosSamplesAtLeast",
+      "claim": "the sampler took at least 50 lease sample(s)",
+      "expected": "50",
+      "actual": "207",
+      "passed": true
+    },
+    {
+      "name": "maxLiveLeasesAtMost",
+      "claim": "live leases never exceeded 3",
+      "expected": "3",
+      "actual": "3",
+      "passed": true
+    },
+    {
+      "name": "finalLiveLeasesEquals",
+      "claim": "exactly 0 lease(s) outlived the run",
+      "expected": "0",
+      "actual": "0",
+      "passed": true
+    },
+    {
+      "name": "eventCountAtLeast",
+      "claim": "the stream contained at least 1 `bulkhead.lease-lost` event(s)",
+      "expected": "1",
+      "actual": "1",
+      "passed": true
+    }
+  ],
+  "passed": true,
+  "notes": [
+    "Does the shared budget survive a killed worker and a frozen worker?",
+    "runId: 2026-09-14T23-38-21-076_07-chaos"
+  ],
+  "witness": {
+    "samples": 808,
+    "peakInFlight": 3,
+    "peakByScope": {
+      "global": 3
+    },
+    "requests": 129,
+    "failures": 0
+  },
+  "coordination": {
+    "commands": 1310,
+    "evalsha": 839,
+    "eval": 0,
+    "errors": 0,
+    "roundTripsPerExecution": 2.57
+  },
+  "chaos": {
+    "samples": 207,
+    "maxLiveLeases": 3,
+    "finalLiveLeases": 0,
+    "actions": [
+      "kill:replica-0",
+      "freeze:replica-1(1500ms)"
+    ],
+    "limit": 3
+  }
+}

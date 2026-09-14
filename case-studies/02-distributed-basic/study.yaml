@@ -1,0 +1,50 @@
+# The second demo: the same four replicas, one shared budget in Redis.
+#
+# Identical to 01 except for two lines: the policies are distributed and the scope
+# is global. Four replicas now share `limit: 5`, so the dependency sees ~5
+# concurrent calls instead of ~20 - and the surplus is shed at the client rather
+# than overloaded onto the dependency.
+#
+#   npm run demo 02
+#   npm run compare 01 02     # the headline table
+id: "02-distributed-basic"
+title: "Same code, one shared budget"
+question: "What changes when the budget belongs to the downstream, not the process?"
+
+topology:
+  policies: distributed
+  scope: global
+  replicas: 4
+  env:
+    REDIS_URL: "redis://127.0.0.1:6379"
+    BULKHEAD_LIMIT: "5"        # shared across all four replicas
+    BULKHEAD_LEASE_MS: "5000"
+    POLICY_TIMEOUT_MS: "2000"
+    RETRY_MAX_ATTEMPTS: "2"
+
+scenario:
+  durationMs: 15000
+  concurrency: 20
+  targetRps: 400               # same offered load as 01, so the comparison is fair
+  seed: 1
+  operations:
+    - { name: "orders.get", method: GET, path: "/orders/{id}", weight: 1 }
+  dependency:
+    latencyMs: 30
+    failureRate: 0
+    capacity: 8                  # the dependency's real ceiling (see study 08)
+
+checks:
+  - { name: witnessPresent }
+  - { name: witnessSamplesAtLeast, params: { value: 200 } }
+  # The headline: the dependency never sees more than the shared limit.
+  - { name: peakInFlightAtMost, params: { value: 5 } }
+  # ...but it does see the limit being used, so this is not a run that did nothing.
+  - { name: peakInFlightAtLeast, params: { value: 4 } }
+  - { name: requestsAtLeast, params: { value: 500 } }
+  # The surplus is shed as capacity, not passed through.
+  - { name: rejectionsByReasonAtLeast, params: { reason: capacity, value: 100 } }
+  # Healthy dependency, healthy coordination: no breaker, mostly cached scripts.
+  - { name: breakerOpensEquals, params: { value: 0 } }
+  - { name: coordinatorRoundTripsAtMost, params: { value: 6 } }
+  - { name: evalshaRatioAtLeast, params: { value: 0.8 } }

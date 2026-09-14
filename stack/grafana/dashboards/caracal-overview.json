@@ -1,0 +1,514 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": { "type": "grafana", "uid": "-- Grafana --" },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "Every caracal decision, from every demo, on one set of panels. Pick a demo in the variable - 01 and 02 overlaid here is the headline comparison.",
+  "editable": true,
+  "graphTooltip": 1,
+  "links": [],
+  "refresh": "2s",
+  "schemaVersion": 39,
+  "tags": ["caracal", "demo"],
+  "templating": {
+    "list": [
+      {
+        "name": "demo",
+        "label": "Demo",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "query": "label_values(caracal_executions_total, demo)",
+        "refresh": 1,
+        "includeAll": true,
+        "multi": true,
+        "current": { "selected": true, "text": ["All"], "value": ["$__all"] }
+      },
+      {
+        "name": "run_id",
+        "label": "Run",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "query": "label_values(caracal_executions_total{demo=~\"$demo\"}, run_id)",
+        "refresh": 1,
+        "includeAll": true,
+        "multi": true,
+        "hide": 0,
+        "current": { "selected": true, "text": ["All"], "value": ["$__all"] }
+      },
+      {
+        "name": "operation",
+        "label": "Operation",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "query": "label_values(caracal_executions_total{demo=~\"$demo\"}, operation)",
+        "refresh": 1,
+        "includeAll": true,
+        "multi": true,
+        "current": { "selected": true, "text": ["All"], "value": ["$__all"] }
+      },
+      {
+        "name": "scope",
+        "label": "Scope",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "query": "label_values(caracal_bulkhead_occupancy{demo=~\"$demo\"}, scope)",
+        "refresh": 1,
+        "includeAll": true,
+        "multi": true,
+        "current": { "selected": true, "text": ["All"], "value": ["$__all"] }
+      }
+    ]
+  },
+  "time": { "from": "now-5m", "to": "now" },
+  "timezone": "browser",
+  "title": "Caracal overview",
+  "uid": "caracal-overview",
+  "version": 1,
+  "panels": [
+    {
+      "id": 9,
+      "title": "Witness: the dependency's own concurrency",
+      "description": "The independent measurement every claim is decided on. downstream-mock counts its own in-flight calls - this is the number that makes 01's 20 and 02's 5 real, not caracal's account of itself.",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": ["lastNotNull", "max"]
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "range": true,
+          "expr": "downstream_inflight",
+          "legendFormat": "in-flight ({{scope}})"
+        },
+        {
+          "refId": "B",
+          "editorMode": "code",
+          "range": true,
+          "expr": "downstream_peak_inflight",
+          "legendFormat": "peak ({{scope}})"
+        }
+      ]
+    },
+    {
+      "id": 1,
+      "title": "Executions by outcome",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": ["lastNotNull"]
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "range": true,
+          "expr": "sum by (demo, outcome) (rate(caracal_executions_total{demo=~\"$demo\", run_id=~\"$run_id\", operation=~\"$operation\"}[$__rate_interval]))",
+          "legendFormat": "{{demo}} {{outcome}}"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Attempts by classification",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": ["lastNotNull"]
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "range": true,
+          "expr": "sum by (demo, classification) (rate(caracal_attempts_total{demo=~\"$demo\", run_id=~\"$run_id\", operation=~\"$operation\"}[$__rate_interval]))",
+          "legendFormat": "{{demo}} {{classification}}"
+        }
+      ]
+    }
+,
+    {
+      "id": 3,
+      "title": "Bulkhead occupancy (coordinator view, by scope)",
+      "description": "What the coordinator believes is in flight. For a local policy this is one process; for a distributed policy it is the whole scope.",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": ["lastNotNull", "max"]
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "range": true,
+          "expr": "max by (demo, scope, replica) (caracal_bulkhead_occupancy{demo=~\"$demo\", run_id=~\"$run_id\", scope=~\"$scope\"})",
+          "legendFormat": "{{demo}} {{scope}} {{replica}}"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Bulkhead rejections by reason",
+      "description": "The distributed bulkhead sheds instead of queueing, so `capacity` here is the design working, not a failure.",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": ["lastNotNull"]
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "range": true,
+          "expr": "sum by (demo, reason) (rate(caracal_bulkhead_rejected_total{demo=~\"$demo\", run_id=~\"$run_id\"}[$__rate_interval]))",
+          "legendFormat": "{{demo}} {{reason}}"
+        }
+      ]
+    }
+,
+    {
+      "id": 5,
+      "title": "Breaker: state changes, probes, in-flight probes",
+      "description": "One state machine per scope, shared by every replica in that scope. In 01-local you see four independent machines; in 02-distributed, one.",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": ["lastNotNull", "max"]
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "range": true,
+          "expr": "sum by (demo, scope, state) (increase(caracal_breaker_state_changes_total{demo=~\"$demo\", run_id=~\"$run_id\"}[$__rate_interval]))",
+          "legendFormat": "transition to {{state}} {{demo}} {{scope}}"
+        },
+        {
+          "refId": "B",
+          "editorMode": "code",
+          "range": true,
+          "expr": "max by (demo, scope) (caracal_breaker_probes_in_flight{demo=~\"$demo\", run_id=~\"$run_id\"})",
+          "legendFormat": "probes in flight {{demo}} {{scope}}"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Breaker rejections (traffic kept away from a struggling dependency)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": ["lastNotNull"]
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "range": true,
+          "expr": "sum by (demo, scope, state) (rate(caracal_breaker_rejected_total{demo=~\"$demo\", run_id=~\"$run_id\"}[$__rate_interval]))",
+          "legendFormat": "{{state}} {{demo}} {{scope}}"
+        }
+      ]
+    }
+,
+    {
+      "id": 7,
+      "title": "Coordination health (the cost of sharing state)",
+      "description": "Everything that goes wrong between a policy and the coordinator. A distributed bulkhead fails closed here; a breaker follows onCoordinatorError unless the scope was already known non-closed.",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 32 },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": ["lastNotNull"]
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "range": true,
+          "expr": "sum by (demo, coordinator_operation) (rate(caracal_breaker_coordinator_errors_total{demo=~\"$demo\", run_id=~\"$run_id\"}[$__rate_interval]))",
+          "legendFormat": "breaker coordinator error ({{coordinator_operation}}) {{demo}}"
+        },
+        {
+          "refId": "B",
+          "editorMode": "code",
+          "range": true,
+          "expr": "sum by (demo, behavior) (rate(caracal_breaker_degraded_total{demo=~\"$demo\", run_id=~\"$run_id\"}[$__rate_interval]))",
+          "legendFormat": "breaker degraded/{{behavior}} {{demo}}"
+        },
+        {
+          "refId": "C",
+          "editorMode": "code",
+          "range": true,
+          "expr": "sum by (demo, reason) (rate(caracal_bulkhead_degraded_total{demo=~\"$demo\", run_id=~\"$run_id\"}[$__rate_interval]))",
+          "legendFormat": "bulkhead degraded/{{reason}} {{demo}}"
+        },
+        {
+          "refId": "D",
+          "editorMode": "code",
+          "range": true,
+          "expr": "sum by (demo, scope) (rate(caracal_bulkhead_lease_lost_total{demo=~\"$demo\", run_id=~\"$run_id\"}[$__rate_interval]))",
+          "legendFormat": "lease lost {{demo}} {{scope}}"
+        },
+        {
+          "refId": "E",
+          "editorMode": "code",
+          "range": true,
+          "expr": "sum by (demo) (rate(caracal_breaker_stale_observations_total{demo=~\"$demo\", run_id=~\"$run_id\"}[$__rate_interval]))",
+          "legendFormat": "stale observation dropped {{demo}}"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Execution duration (p50 / p95 / p99)",
+      "description": "Caller-visible latency. In a distributed topology this includes the coordinator round trips the timeout policy does not cover.",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 32 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": ["lastNotNull"]
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "range": true,
+          "expr": "histogram_quantile(0.50, sum by (demo, le) (rate(caracal_execution_duration_milliseconds_bucket{demo=~\"$demo\", run_id=~\"$run_id\", operation=~\"$operation\"}[$__rate_interval])))",
+          "legendFormat": "p50 {{demo}}"
+        },
+        {
+          "refId": "B",
+          "editorMode": "code",
+          "range": true,
+          "expr": "histogram_quantile(0.95, sum by (demo, le) (rate(caracal_execution_duration_milliseconds_bucket{demo=~\"$demo\", run_id=~\"$run_id\", operation=~\"$operation\"}[$__rate_interval])))",
+          "legendFormat": "p95 {{demo}}"
+        },
+        {
+          "refId": "C",
+          "editorMode": "code",
+          "range": true,
+          "expr": "histogram_quantile(0.99, sum by (demo, le) (rate(caracal_execution_duration_milliseconds_bucket{demo=~\"$demo\", run_id=~\"$run_id\", operation=~\"$operation\"}[$__rate_interval])))",
+          "legendFormat": "p99 {{demo}}"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "title": "Coordination cost: round trips and EVALSHA ratio",
+      "description": "What sharing state costs. Round trips per execution, and how many script calls hit the EVALSHA cache rather than re-sending the body.",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 40 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": ["lastNotNull"]
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "range": true,
+          "expr": "sum(rate(caracal_coordinator_commands_total{demo=~\"$demo\", run_id=~\"$run_id\"}[$__rate_interval])) / clamp_min(sum(rate(caracal_executions_total{demo=~\"$demo\", run_id=~\"$run_id\"}[$__rate_interval])), 0.001)",
+          "legendFormat": "round trips/exec {{demo}}"
+        },
+        {
+          "refId": "B",
+          "editorMode": "code",
+          "range": true,
+          "expr": "sum(rate(caracal_coordinator_commands_total{demo=~\"$demo\", run_id=~\"$run_id\", command=\"evalsha\"}[$__rate_interval])) / clamp_min(sum(rate(caracal_coordinator_commands_total{demo=~\"$demo\", run_id=~\"$run_id\", command=~\"evalsha|eval\"}[$__rate_interval])), 0.001)",
+          "legendFormat": "EVALSHA ratio {{demo}}"
+        }
+      ]
+    }
+  ]
+}

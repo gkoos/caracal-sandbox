@@ -1,0 +1,14 @@
+{
+  "name": "caracal-runner",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Run manifests, invariant checks and the comparator that makes demos comparable.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./checks": "./src/checks.ts"
+  },
+  "dependencies": {
+    "@gkoos/caracal": "0.4.0"
+  }
+}
