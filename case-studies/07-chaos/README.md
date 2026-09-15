@@ -17,7 +17,7 @@ Three seconds in, a replica is `SIGKILL`ed mid-permit; two seconds later another
 ## The claims
 
 ```text
-max live leases <= 3      through the kill, the freeze, and everything else
+max live leases <= 3      in every 50ms sample, through the kill, the freeze, and everything else
 final live leases == 0    nothing leaked
 bulkhead.lease-lost >= 1  the frozen worker really did lose its lease
 ```

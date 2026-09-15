@@ -400,7 +400,7 @@ const scenes = {
       caption(
         390,
         345,
-        "a throwing or slow-async sink is free; only a synchronously blocking one can hurt p99",
+        "a throwing or slow-async sink left p99 unchanged; only a synchronously blocking one hurt it",
       ),
     )
     return svg(780, 360, parts.join("\n"))

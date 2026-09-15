@@ -8,22 +8,22 @@ A sandbox for exploring the distributed resilience library [Caracal](https://git
 
 ## What is this sandbox?
 
-Case studies that run the same workload against the same dependency, move exactly one thing - the coordination boundary - and record what actually happened. Every result is read from the most independent instrument available, never caracal grading itself alone.
+Case studies that run the same workload against the same dependency, move the coordination boundary, and record what actually happened. Every headline number is read from the most independent instrument available - the dependency's own counters wherever they exist - and where a claim can only come from caracal's own events, the study says so and checks it against a witness caracal does not control.
 
 ## The case studies, at a glance
 
 | Case study | The boundary moves to... | What it measures |
 |---|---|---|
-| [`01 · local-only`](case-studies/01-local-only/README.md) | the process | 4 × `bulkhead.local({ limit: 5 })` → the dependency sees **20**, not 5 |
-| [`02 · distributed`](case-studies/02-distributed-basic/README.md) | the fleet | same load, one shared budget → the dependency sees **5** (refused 83 → 4,816) |
+| [`01 · local-only`](case-studies/01-local-only/README.md) | the process | 4 × `bulkhead.local({ limit: 5 })` → the dependency's peak in-flight reaches **20**, not 5 |
+| [`02 · distributed`](case-studies/02-distributed-basic/README.md) | the fleet | one shared budget → peak in-flight held at **5** (refused 83 → 4,816) |
 | [`03 · multi-region`](case-studies/03-multi-region/README.md) | the region | break eu's dependency → eu's breaker opens, **us: 0 opens** |
 | [`04 · tenant isolation`](case-studies/04-tenant-isolation/README.md) | the tenant | 50 tenants, one noisy → **exactly 1** breaker opens |
 | [`05 · postgres permit-hold`](case-studies/05-postgres-permit-hold/README.md) | the query | a 2s `pg_sleep` behind a 500ms timeout holds its permit ~2,059ms |
-| [`06 · observability`](case-studies/06-observability-and-cost/README.md) | the sink | a blocking sink 3×'s p99; a throwing/slow-async one is free |
+| [`06 · observability`](case-studies/06-observability-and-cost/README.md) | the sink | a blocking sink triples p99; a throwing/slow-async one leaves it unchanged |
 | [`07 · chaos`](case-studies/07-chaos/README.md) | the lease | kill a replica, freeze another → live leases never observed above 3, return to 0 |
 | [`08 · overload`](case-studies/08-overload/README.md) | the ceiling | a budget of 20 against a capacity-8 dependency → the dependency itself 503s, not caracal |
 
-Each number above is read from the most independent instrument available: the dependency's own counters (`01`, `02`, `08`), caracal's events for breaker and permit claims (`03`–`05`), the client's own timings (`06`), and Redis's own lease count (`07`). No claim rests on caracal grading itself alone.
+Each number above is read from the most independent instrument available: the dependency's own counters (`01`, `02`, `08`), caracal's events for breaker and permit claims (`03`–`05`), the client's own timings (`06`), and Redis's own lease count (`07`). Three of those instruments are not caracal at all: the dependency's counters, the client's clocks, and Redis's own lease state. Where a claim can only be reported by caracal - which breaker opened, how many permits are live - the study says so rather than implying it was independently measured.
 
 ## Run it
 
@@ -53,12 +53,12 @@ More things to run:
 | `npm run smoke` | local policies, healthy dependency, everything observable |
 | `npm run smoke:distributed` | same workload, one shared budget in Redis |
 | `npm run smoke:breaker` | the breaker opens and sheds traffic (retry disabled so the signal isn't diluted) |
-| `npm run observability` | the sink contract: a throwing/slow-async sink is free, a blocking one isn't |
+| `npm run observability` | the sink contract: a throwing/slow-async sink leaves p99 unchanged, a blocking one does not |
 | `CARACAL_OTEL=off npm run smoke` | the event → summary → compare path with no SDK and no stack |
 
 ## Watching it in Grafana
 
-`npm run stack:up` provisions a Grafana dashboard — **Caracal overview**, the default home at <http://localhost:3000>. The witness is the first panel: the dependency's own concurrency count, the number every claim is decided on. Below it, the caracal panels show executions, attempts, bulkhead occupancy, breaker state, and coordination cost.
+`npm run stack:up` provisions a Grafana dashboard — **Caracal overview**, the default home at <http://localhost:3000>. The witness is the first panel: the dependency's own concurrency count, the number the headline claims are decided on. Below it, the caracal panels show executions, attempts, bulkhead occupancy, breaker state, and coordination cost.
 
 To compare two studies, run both (`npm run demo 01` then `npm run demo 02`), then multi-select them in the **Demo** variable — the caracal panels overlay them, color-coded by demo. Widen the time range (it defaults to the last 5 minutes) so the runs are in view.
 
@@ -117,7 +117,7 @@ coordinator trips/exec   n/a            ~4                     n/a
 
 The verdict column looks like `01` wins on the rate rows. It doesn't, read it this way:
 
-- **witness peak in-flight, 20 → 5**, is the entire point. Four per-process limits still let the dependency see 20 concurrent calls, one shared budget holds it at 5. This is the headline the study exists to show.
+- **witness peak in-flight, 20 → 5**, is the entire point. Four per-process limits still let the dependency's in-flight peak reach 20; one shared budget holds it at 5. This is the headline the study exists to show.
 - **successful requests/s, ~392 → ~108**, and **rejected requests/s, ~5 → ~324**, are the cost, and they are expected. The offered load far exceeds a fleet-wide budget of 5, so the surplus is rejected as `capacity` at the client instead of being pushed onto the dependency. Shedding is the budget working, not failing.
 - **witness peak / limit, 20/5 → 5/5**, is the budget made visible: 02 holds the dependency at its configured ceiling, while 01 shows four per-process 5s adding up to 20.
 - **coordinator trips/exec, n/a → ~4**, is the other cost of sharing: coordination is no longer free, each execution pays a few Redis roundtrips.
