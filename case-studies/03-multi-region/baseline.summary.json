@@ -1,12 +1,12 @@
 {
   "schema": 1,
-  "runId": "2026-09-14T23-37-25-296_03-multi-region",
+  "runId": "2026-09-15T21-18-44-282_03-multi-region",
   "demo": "03-multi-region",
   "title": "A regional failure stays regional",
-  "startedAt": "2026-09-14T23:37:25.296Z",
-  "finishedAt": "2026-09-14T23:37:25.296Z",
+  "startedAt": "2026-09-15T21:18:44.282Z",
+  "finishedAt": "2026-09-15T21:18:44.283Z",
   "library": {
-    "version": "0.4.0",
+    "version": "0.5.0",
     "source": "npm"
   },
   "topology": {
@@ -15,7 +15,7 @@
     "config": {
       "topology": "distributed",
       "scope": "region",
-      "namespace": "caracal-demo:2026-09-14T23-37-02-404_03-multi-region",
+      "namespace": "caracal-demo:2026-09-15T21-18-21-593_03-multi-region",
       "scope label": "on",
       "onCoordinatorError": "fail-open",
       "bulkhead limit": 10,
@@ -35,85 +35,85 @@
     "concurrency": 12,
     "replicas": 4,
     "byOperation": {
-      "us": 1489,
-      "eu": 2151
+      "us": 1491,
+      "eu": 2158
     }
   },
   "client": {
-    "requests": 3640,
-    "success": 2759,
-    "failure": 61,
+    "requests": 3649,
+    "success": 2779,
+    "failure": 59,
     "refusedByReason": {
-      "bulkhead:capacity": 14,
-      "breaker-open": 806
+      "bulkhead:capacity": 10,
+      "breaker-open": 801
     },
     "timedOut": 0,
     "latencyMs": {
-      "p50": 47,
-      "p95": 56,
-      "p99": 146,
-      "max": 172
+      "p50": 45,
+      "p95": 57,
+      "p99": 143,
+      "max": 162
     },
-    "rps": 201
+    "rps": 202
   },
   "caracal": {
     "executionsByOutcome": {
-      "success": 2820,
-      "failure": 820
+      "success": 2838,
+      "failure": 811
     },
     "attemptsByClassification": {
-      "success": 2759,
-      "retryable": 122
+      "success": 2779,
+      "retryable": 120
     },
     "eventsByType": {
-      "execution.started": 3640,
-      "bulkhead.admitted": 2881,
-      "attempt.started": 2881,
-      "attempt.settled": 2881,
-      "bulkhead.released": 2881,
-      "breaker.observation": 2808,
-      "execution.settled": 3640,
+      "execution.started": 3649,
+      "bulkhead.admitted": 2899,
+      "attempt.started": 2899,
+      "attempt.settled": 2899,
+      "bulkhead.released": 2899,
+      "breaker.observation": 2828,
+      "execution.settled": 3649,
       "retry.scheduled": 61,
-      "retry.exhausted": 61,
-      "breaker.rejected": 806,
-      "breaker.observation-stale": 12,
-      "bulkhead.rejected": 14,
-      "retry.declined": 14,
+      "retry.exhausted": 59,
+      "breaker.rejected": 801,
+      "breaker.observation-stale": 10,
+      "bulkhead.rejected": 10,
+      "retry.declined": 10,
       "breaker.state-changed": 5,
       "breaker.probe-started": 6
     },
     "breakerStateChanges": {
       "half-open": 2,
-      "open": 2,
-      "closed": 1
+      "closed": 1,
+      "open": 2
     },
     "breakerOpens": 2,
     "breakerOpensByScope": {
       "region:eu": 2
     },
     "breakerRejectionsByState": {
-      "open": 780,
+      "open": 775,
       "half-open": 26
     },
     "bulkheadRejectionsByReason": {
-      "capacity": 14
+      "capacity": 10
     },
     "bulkheadRejectionsByScope": {
-      "region:us": 13,
+      "region:us": 9,
       "region:eu": 1
     },
     "peakProbesInFlightByScope": {
-      "region:eu": 2
+      "region:eu": 3
     },
     "leaseLost": 0,
     "degraded": 0,
-    "staleObservations": 12,
+    "staleObservations": 10,
     "coordinatorErrors": 0,
     "retriesScheduled": 61,
-    "retriesDeclined": 14,
+    "retriesDeclined": 10,
     "timeoutsTriggered": 0,
     "distinctScopes": 2,
-    "maxPermitHoldMs": 65
+    "maxPermitHoldMs": 72
   },
   "checks": [
     {
@@ -127,14 +127,14 @@
       "name": "witnessSamplesAtLeast",
       "claim": "the dependency took at least 200 samples",
       "expected": "200",
-      "actual": "1232",
+      "actual": "1312",
       "passed": true
     },
     {
       "name": "requestsAtLeast",
       "claim": "the run issued at least 500 requests",
       "expected": "500",
-      "actual": "3640",
+      "actual": "3649",
       "passed": true
     },
     {
@@ -155,14 +155,14 @@
       "name": "eventCountAtLeast",
       "claim": "the stream contained at least 20 `breaker.rejected` event(s)",
       "expected": "20",
-      "actual": "806",
+      "actual": "801",
       "passed": true
     },
     {
       "name": "successRateAtLeast",
       "claim": "at least 70% of calls succeeded",
       "expected": ">= 70%",
-      "actual": "75.8%",
+      "actual": "76.2%",
       "passed": true
     },
     {
@@ -190,23 +190,23 @@
   "passed": true,
   "notes": [
     "Does a failure in one region stay in that region?",
-    "runId: 2026-09-14T23-37-02-404_03-multi-region"
+    "runId: 2026-09-15T21-18-21-593_03-multi-region"
   ],
   "witness": {
-    "samples": 1232,
+    "samples": 1312,
     "peakInFlight": 12,
     "peakByScope": {
       "region:us": 10,
       "region:eu": 10
     },
-    "requests": 2881,
-    "failures": 122
+    "requests": 2899,
+    "failures": 120
   },
   "coordination": {
-    "commands": 13052,
-    "evalsha": 9408,
-    "eval": 4,
-    "errors": 4,
+    "commands": 13102,
+    "evalsha": 9453,
+    "eval": 0,
+    "errors": 0,
     "roundTripsPerExecution": 3.59
   }
 }

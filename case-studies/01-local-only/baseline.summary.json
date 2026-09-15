@@ -1,12 +1,12 @@
 {
   "schema": 1,
-  "runId": "2026-09-14T23-36-27-732_01-local-only",
+  "runId": "2026-09-15T21-17-59-130_01-local-only",
   "demo": "01-local-only",
   "title": "Local policies, no Redis",
-  "startedAt": "2026-09-14T23:36:27.732Z",
-  "finishedAt": "2026-09-14T23:36:27.733Z",
+  "startedAt": "2026-09-15T21:17:59.130Z",
+  "finishedAt": "2026-09-15T21:17:59.130Z",
   "library": {
-    "version": "0.4.0",
+    "version": "0.5.0",
     "source": "npm"
   },
   "topology": {
@@ -15,7 +15,7 @@
     "config": {
       "topology": "local",
       "scope": "global",
-      "namespace": "caracal-demo:2026-09-14T23-36-07-808_01-local-only",
+      "namespace": "caracal-demo:2026-09-15T21-17-39-410_01-local-only",
       "scope label": "on",
       "onCoordinatorError": "fail-open",
       "bulkhead limit": 5,
@@ -35,53 +35,53 @@
     "concurrency": 20,
     "replicas": 4,
     "byOperation": {
-      "orders.get": 5958
+      "orders.get": 5968
     }
   },
   "client": {
-    "requests": 5958,
-    "success": 5876,
+    "requests": 5968,
+    "success": 5888,
     "failure": 0,
     "refusedByReason": {
-      "bulkhead:capacity": 82
+      "bulkhead:capacity": 80
     },
     "timedOut": 0,
     "latencyMs": {
       "p50": 47,
-      "p95": 50,
-      "p99": 54,
-      "max": 68
+      "p95": 49,
+      "p99": 55,
+      "max": 80
     },
     "rps": 396
   },
   "caracal": {
     "executionsByOutcome": {
-      "success": 5876,
-      "failure": 82
+      "success": 5888,
+      "failure": 80
     },
     "attemptsByClassification": {
-      "success": 5876
+      "success": 5888
     },
     "eventsByType": {
-      "execution.started": 5958,
-      "bulkhead.admitted": 5876,
-      "attempt.started": 5876,
-      "attempt.settled": 5876,
-      "bulkhead.released": 5876,
-      "breaker.observation": 5876,
-      "execution.settled": 5958,
-      "bulkhead.rejected": 82,
-      "retry.declined": 82
+      "execution.started": 5968,
+      "bulkhead.admitted": 5888,
+      "attempt.started": 5888,
+      "attempt.settled": 5888,
+      "bulkhead.released": 5888,
+      "breaker.observation": 5888,
+      "execution.settled": 5968,
+      "bulkhead.rejected": 80,
+      "retry.declined": 80
     },
     "breakerStateChanges": {},
     "breakerOpens": 0,
     "breakerOpensByScope": {},
     "breakerRejectionsByState": {},
     "bulkheadRejectionsByReason": {
-      "capacity": 82
+      "capacity": 80
     },
     "bulkheadRejectionsByScope": {
-      "process": 82
+      "process": 80
     },
     "peakProbesInFlightByScope": {},
     "leaseLost": 0,
@@ -89,10 +89,10 @@
     "staleObservations": 0,
     "coordinatorErrors": 0,
     "retriesScheduled": 0,
-    "retriesDeclined": 82,
+    "retriesDeclined": 80,
     "timeoutsTriggered": 0,
     "distinctScopes": 1,
-    "maxPermitHoldMs": 61
+    "maxPermitHoldMs": 67
   },
   "checks": [
     {
@@ -106,7 +106,7 @@
       "name": "witnessSamplesAtLeast",
       "claim": "the dependency took at least 200 samples",
       "expected": "200",
-      "actual": "978",
+      "actual": "982",
       "passed": true
     },
     {
@@ -127,21 +127,21 @@
       "name": "requestsAtLeast",
       "claim": "the run issued at least 500 requests",
       "expected": "500",
-      "actual": "5958",
+      "actual": "5968",
       "passed": true
     },
     {
       "name": "successRateAtLeast",
       "claim": "at least 90% of calls succeeded",
       "expected": ">= 90%",
-      "actual": "98.6%",
+      "actual": "98.7%",
       "passed": true
     },
     {
       "name": "refusedAtMost",
-      "claim": "at most 150 call(s) were refused by a policy",
-      "expected": "150",
-      "actual": "82",
+      "claim": "at most 400 call(s) were refused by a policy",
+      "expected": "400",
+      "actual": "80",
       "passed": true
     },
     {
@@ -155,15 +155,15 @@
   "passed": true,
   "notes": [
     "What does a per-process limit mean when there are four processes?",
-    "runId: 2026-09-14T23-36-07-808_01-local-only"
+    "runId: 2026-09-15T21-17-39-410_01-local-only"
   ],
   "witness": {
-    "samples": 978,
+    "samples": 982,
     "peakInFlight": 20,
     "peakByScope": {
       "global": 20
     },
-    "requests": 5876,
+    "requests": 5888,
     "failures": 0
   }
 }

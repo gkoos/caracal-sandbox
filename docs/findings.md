@@ -2,7 +2,7 @@
 
 Things the suite taught us, in the order they were found. Each one is either a trap in composing caracal with an OpenTelemetry stack, or a piece of caracal behaviour that reads differently once you can see the numbers.
 
-These are notes for the demos and the documentation, recorded with the evidence that produced them rather than as opinions. Every caracal behaviour below was observed against `@gkoos/caracal@0.4.0`, the version this repository pins.
+These are notes for the demos and the documentation, recorded with the evidence that produced them rather than as opinions. The behaviours below were observed against `@gkoos/caracal@0.4.0`; the pinned version is now `@gkoos/caracal@0.5.0`, which changed finding 3, and each finding says which version its numbers came from.
 
 ## 1. A dead collector fails `sdk.shutdown()` (and only that)
 
@@ -24,20 +24,27 @@ The trap is asymmetric, which is why it is worth writing down: `trace.getTracer(
 
 The bridge now creates its telemetry after `start()`, and the ordering is commented where it matters. Demo `05` should turn this into a visible demonstration.
 
-## 3. A saturated bulkhead trips an outer breaker
+## 3. A saturated bulkhead used to trip an outer breaker
 
-With the recommended ordering `[breaker, timeout, retry, bulkhead]`, a concurrency of 16 and a bulkhead limit of 8, a smoke run produced:
+Fixed in `@gkoos/caracal@0.5.0`. With the recommended ordering `[breaker, timeout, retry, bulkhead]`, a concurrency of 16 and a bulkhead limit of 8, a smoke run against `0.4.0` produced:
 
 ```text
 refused {"bulkhead:capacity":8,"breaker-open":373}
 attempts {success:19}   breaker state-changed -> open
 ```
 
-A bulkhead rejection travelled up to the breaker, where the adapter's classifier (`failure`/`retryable` counts as a failure) recorded it against the dependency. Ten such observations crossed `minimumThroughput`, the breaker opened, and it then shed the rest of the run under a *different* reason.
+A bulkhead rejection travelled up to the breaker, where the adapter's classifier (`failure`/`retryable` counts as a failure) recorded it against the dependency. Ten such observations crossed `minimumThroughput`, the breaker opened, and it then shed the rest of the run under a *different* reason - reporting a failure rate the dependency never produced, while the dependency was healthy throughout.
 
-So under load, the bulkhead's own shedding is what opens the breaker - and the breaker then reports the dependency as unhealthy when the dependency was never the problem.
+The same run against `0.5.0`:
 
-The fix is the breaker's `classify`, which receives `(error, isSuccess)` and may return `ignored`, so the outcome neither counts toward nor clears failures:
+```text
+refused {"bulkhead:capacity":168}
+attempts {success:232}   no breaker state change
+```
+
+The 168 refusals are calls the bulkhead shed; the 232 attempts are exactly the calls it admitted. None of the refusals reached the breaker as a failure, so nothing opened it. `npm run smoke:overload` is that run, and its checks are the witness pair: refusals happened, and `breakerOpensAtMost` is 0.
+
+The line `0.5.0` draws is *the adapter never ran*. `capacity`, `wait-timeout` and `admission-expired` are not recorded; `lease-lost` still is (that permit was held and the call had started), and so is a timeout (the dependency did not answer). `countBulkheadRejections: true` restores the old behaviour, and an explicit breaker `classify` still owns the mapping - the workaround this finding used to recommend:
 
 ```ts
 classify: (error, isSuccess) =>
@@ -48,11 +55,9 @@ classify: (error, isSuccess) =>
       : "failure"
 ```
 
-There is no second fix. The alternative that used to be written here - "put the bulkhead outside the breaker, so a rejection short-circuits first" - cannot work: a bulkhead declares `phase: "attempt"`, and the runtime places attempt-phase policies directly around the adapter *whatever their position in the array* ("`phase` decides placement relative to the adapter", `docs/core-api.md`). Array order never moves a bulkhead, so an outer breaker always observes the rejection, and only the classifier changes what it records.
+There is no second fix. The alternative that used to be written here - "put the bulkhead outside the breaker, so a rejection short-circuits first" - cannot work: a bulkhead declares `phase: "attempt"`, and the runtime places attempt-phase policies directly around the adapter *whatever their position in the array* ("`phase` decides placement relative to the adapter", `docs/core-api.md`). Array order never moves a bulkhead, so an outer breaker always observes the refusal, and only the classifier decides what it records.
 
-This is a documented default rather than a bug - and it is the right default for a timeout, which really does say something about the dependency. It is the wrong default for a bulkhead, whose rejection means "we shed this on purpose". The sharp edge is that the two look identical to the breaker.
-
-This belongs in demo `01`, where the pipeline itself is the subject.
+Demo `01` is where the pipeline itself is the subject, and its README carries the same override.
 
 ## 4. Retry inside the breaker dilutes the failure signal
 

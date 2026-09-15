@@ -1,12 +1,12 @@
 {
   "schema": 1,
-  "runId": "2026-09-14T23-36-55-495_02-distributed-basic",
+  "runId": "2026-09-15T21-18-20-271_02-distributed-basic",
   "demo": "02-distributed-basic",
   "title": "Same code, one shared budget",
-  "startedAt": "2026-09-14T23:36:55.495Z",
-  "finishedAt": "2026-09-14T23:36:55.495Z",
+  "startedAt": "2026-09-15T21:18:20.271Z",
+  "finishedAt": "2026-09-15T21:18:20.272Z",
   "library": {
-    "version": "0.4.0",
+    "version": "0.5.0",
     "source": "npm"
   },
   "topology": {
@@ -15,7 +15,7 @@
     "config": {
       "topology": "distributed",
       "scope": "global",
-      "namespace": "caracal-demo:2026-09-14T23-36-35-770_02-distributed-basic",
+      "namespace": "caracal-demo:2026-09-15T21-18-00-526_02-distributed-basic",
       "scope label": "on",
       "onCoordinatorError": "fail-open",
       "bulkhead limit": 5,
@@ -35,53 +35,53 @@
     "concurrency": 20,
     "replicas": 4,
     "byOperation": {
-      "orders.get": 6471
+      "orders.get": 6456
     }
   },
   "client": {
-    "requests": 6471,
-    "success": 1614,
+    "requests": 6456,
+    "success": 1620,
     "failure": 0,
     "refusedByReason": {
-      "bulkhead:capacity": 4857
+      "bulkhead:capacity": 4836
     },
     "timedOut": 0,
     "latencyMs": {
       "p50": 3,
       "p95": 51,
       "p99": 58,
-      "max": 75
+      "max": 93
     },
-    "rps": 429
+    "rps": 428
   },
   "caracal": {
     "executionsByOutcome": {
-      "failure": 4857,
-      "success": 1614
+      "failure": 4836,
+      "success": 1620
     },
     "attemptsByClassification": {
-      "success": 1614
+      "success": 1620
     },
     "eventsByType": {
-      "execution.started": 6471,
-      "bulkhead.admitted": 1614,
-      "attempt.started": 1614,
-      "bulkhead.rejected": 4857,
-      "retry.declined": 4857,
-      "execution.settled": 6471,
-      "attempt.settled": 1614,
-      "bulkhead.released": 1614,
-      "breaker.observation": 1614
+      "execution.started": 6456,
+      "bulkhead.admitted": 1620,
+      "attempt.started": 1620,
+      "bulkhead.rejected": 4836,
+      "retry.declined": 4836,
+      "execution.settled": 6456,
+      "attempt.settled": 1620,
+      "bulkhead.released": 1620,
+      "breaker.observation": 1620
     },
     "breakerStateChanges": {},
     "breakerOpens": 0,
     "breakerOpensByScope": {},
     "breakerRejectionsByState": {},
     "bulkheadRejectionsByReason": {
-      "capacity": 4857
+      "capacity": 4836
     },
     "bulkheadRejectionsByScope": {
-      "global": 4857
+      "global": 4836
     },
     "peakProbesInFlightByScope": {},
     "leaseLost": 0,
@@ -89,10 +89,10 @@
     "staleObservations": 0,
     "coordinatorErrors": 0,
     "retriesScheduled": 0,
-    "retriesDeclined": 4857,
+    "retriesDeclined": 4836,
     "timeoutsTriggered": 0,
     "distinctScopes": 1,
-    "maxPermitHoldMs": 63
+    "maxPermitHoldMs": 74
   },
   "checks": [
     {
@@ -106,7 +106,7 @@
       "name": "witnessSamplesAtLeast",
       "claim": "the dependency took at least 200 samples",
       "expected": "200",
-      "actual": "989",
+      "actual": "987",
       "passed": true
     },
     {
@@ -127,14 +127,14 @@
       "name": "requestsAtLeast",
       "claim": "the run issued at least 500 requests",
       "expected": "500",
-      "actual": "6471",
+      "actual": "6456",
       "passed": true
     },
     {
       "name": "rejectionsByReasonAtLeast",
       "claim": "at least 100 rejection(s) with reason `capacity`",
       "expected": "100",
-      "actual": "4857",
+      "actual": "4836",
       "passed": true
     },
     {
@@ -162,21 +162,21 @@
   "passed": true,
   "notes": [
     "What changes when the budget belongs to the downstream, not the process?",
-    "runId: 2026-09-14T23-36-35-770_02-distributed-basic"
+    "runId: 2026-09-15T21-18-00-526_02-distributed-basic"
   ],
   "witness": {
-    "samples": 989,
+    "samples": 987,
     "peakInFlight": 5,
     "peakByScope": {
       "global": 5
     },
-    "requests": 1614,
+    "requests": 1620,
     "failures": 0,
     "capacity": 8
   },
   "coordination": {
-    "commands": 16170,
-    "evalsha": 9699,
+    "commands": 16152,
+    "evalsha": 9696,
     "eval": 0,
     "errors": 0,
     "roundTripsPerExecution": 2.5

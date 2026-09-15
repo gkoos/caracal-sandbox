@@ -41,7 +41,10 @@ checks:
   # A burst to one replica sheds locally even while the fleet is under 20 - that
   # is the point: a local limit cannot share spare capacity across processes.
   - { name: successRateAtLeast, params: { value: 0.9 } }
-  - { name: refusedAtMost, params: { value: 150 } }
-  # Shedding ~3% of calls is nowhere near the breaker's threshold, so the
-  # dependency is never misreported as unhealthy.
+  # Shedding is a minority of calls, and since caracal 0.5.0 it is not recorded by
+  # the breaker at all (finding 3), so the dependency is never misreported as
+  # unhealthy. `successRateAtLeast` above is the machine-independent form of that
+  # claim; this ceiling is deliberately loose, because the absolute count depends
+  # on how long a host holds its permits (~2-4% of calls on the machines measured).
+  - { name: refusedAtMost, params: { value: 400 } }
   - { name: breakerOpensEquals, params: { value: 0 } }

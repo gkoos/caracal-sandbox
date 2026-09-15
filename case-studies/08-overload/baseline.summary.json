@@ -1,12 +1,12 @@
 {
   "schema": 1,
-  "runId": "2026-09-14T23-39-05-919_08-overload",
+  "runId": "2026-09-15T21-19-59-232_08-overload",
   "demo": "08-overload",
   "title": "A budget above capacity overloads the dependency",
-  "startedAt": "2026-09-14T23:39:05.919Z",
-  "finishedAt": "2026-09-14T23:39:05.919Z",
+  "startedAt": "2026-09-15T21:19:59.232Z",
+  "finishedAt": "2026-09-15T21:19:59.232Z",
   "library": {
-    "version": "0.4.0",
+    "version": "0.5.0",
     "source": "npm"
   },
   "topology": {
@@ -15,7 +15,7 @@
     "config": {
       "topology": "distributed",
       "scope": "global",
-      "namespace": "caracal-demo:2026-09-14T23-38-46-131_08-overload",
+      "namespace": "caracal-demo:2026-09-15T21-19-39-502_08-overload",
       "scope label": "on",
       "onCoordinatorError": "fail-open",
       "bulkhead limit": 20,
@@ -35,40 +35,40 @@
     "concurrency": 20,
     "replicas": 4,
     "byOperation": {
-      "orders.get": 6217
+      "orders.get": 6203
     }
   },
   "client": {
-    "requests": 6217,
-    "success": 2866,
-    "failure": 3351,
+    "requests": 6203,
+    "success": 2856,
+    "failure": 3347,
     "refusedByReason": {},
     "timedOut": 0,
     "latencyMs": {
       "p50": 8,
-      "p95": 52,
+      "p95": 51,
       "p99": 59,
-      "max": 85
+      "max": 126
     },
     "rps": 412
   },
   "caracal": {
     "executionsByOutcome": {
-      "success": 6217
+      "success": 6203
     },
     "attemptsByClassification": {
-      "retryable": 3351,
-      "success": 2866
+      "retryable": 3347,
+      "success": 2856
     },
     "eventsByType": {
-      "execution.started": 6217,
-      "bulkhead.admitted": 6217,
-      "attempt.started": 6217,
-      "attempt.settled": 6217,
-      "bulkhead.released": 6217,
-      "retry.exhausted": 3351,
-      "breaker.observation": 6217,
-      "execution.settled": 6217
+      "execution.started": 6203,
+      "bulkhead.admitted": 6203,
+      "attempt.started": 6203,
+      "attempt.settled": 6203,
+      "bulkhead.released": 6203,
+      "retry.exhausted": 3347,
+      "breaker.observation": 6203,
+      "execution.settled": 6203
     },
     "breakerStateChanges": {},
     "breakerOpens": 0,
@@ -85,7 +85,7 @@
     "retriesDeclined": 0,
     "timeoutsTriggered": 0,
     "distinctScopes": 1,
-    "maxPermitHoldMs": 62
+    "maxPermitHoldMs": 89
   },
   "checks": [
     {
@@ -99,49 +99,49 @@
       "name": "witnessSamplesAtLeast",
       "claim": "the dependency took at least 200 samples",
       "expected": "200",
-      "actual": "1250",
+      "actual": "1230",
       "passed": true
     },
     {
       "name": "requestsAtLeast",
       "claim": "the run issued at least 500 requests",
       "expected": "500",
-      "actual": "6217",
+      "actual": "6203",
       "passed": true
     },
     {
       "name": "witnessFailuresAtLeast",
       "claim": "the dependency failed at least 100 call(s)",
       "expected": "100",
-      "actual": "3351",
+      "actual": "3347",
       "passed": true
     },
     {
       "name": "successRateAtMost",
       "claim": "at most 90% of calls succeeded",
       "expected": "<= 90%",
-      "actual": "46.1%",
+      "actual": "46.0%",
       "passed": true
     }
   ],
   "passed": true,
   "notes": [
     "What happens when the budget lets more through than the dependency can serve?",
-    "runId: 2026-09-14T23-38-46-131_08-overload"
+    "runId: 2026-09-15T21-19-39-502_08-overload"
   ],
   "witness": {
-    "samples": 1250,
+    "samples": 1230,
     "peakInFlight": 8,
     "peakByScope": {
       "global": 8
     },
-    "requests": 6217,
-    "failures": 3351,
+    "requests": 6203,
+    "failures": 3347,
     "capacity": 8
   },
   "coordination": {
-    "commands": 24868,
-    "evalsha": 18651,
+    "commands": 24812,
+    "evalsha": 18609,
     "eval": 0,
     "errors": 0,
     "roundTripsPerExecution": 4

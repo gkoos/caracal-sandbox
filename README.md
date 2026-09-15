@@ -53,6 +53,7 @@ More things to run:
 | `npm run smoke` | local policies, healthy dependency, everything observable |
 | `npm run smoke:distributed` | same workload, one shared budget in Redis |
 | `npm run smoke:breaker` | the breaker opens and sheds traffic (retry disabled so the signal isn't diluted) |
+| `npm run smoke:overload` | the bulkhead limit is below the offered concurrency: the surplus is shed as `capacity` and the breaker stays closed |
 | `npm run observability` | the sink contract: a throwing/slow-async sink leaves p99 unchanged, a blocking one does not |
 | `CARACAL_OTEL=off npm run smoke` | the event → summary → compare path with no SDK and no stack |
 
@@ -73,7 +74,7 @@ The witness panel is live only — it shows whatever is running now, not a per-r
 
 ## Findings
 
-Building the sandbox surfaced a few non-obvious traps: a dead collector that fails only at shutdown, metric instruments that are silently permanent no-ops, a saturated bulkhead that trips its own outer breaker, and seven more. Each is recorded with the evidence that produced it in [docs/findings.md](docs/findings.md).
+Building the sandbox surfaced a few non-obvious traps: a dead collector that fails only at shutdown, metric instruments that are silently permanent no-ops, a saturated bulkhead that tripped its own outer breaker (fixed in caracal `0.5.0`), and seven more. Each is recorded with the evidence that produced it in [docs/findings.md](docs/findings.md).
 
 ## Layout
 
@@ -97,7 +98,7 @@ The case studies run against the published package. To test unreleased changes:
 
 ```sh
 npm run link:local    # packs ../caracal and installs the tarball
-npm run link:npm      # back to @gkoos/caracal@0.4.0
+npm run link:npm      # back to @gkoos/caracal@0.5.0
 ```
 
 `npm run verify:api` fails if the surface drifts from what the sandbox uses.

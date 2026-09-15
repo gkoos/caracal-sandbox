@@ -1,12 +1,12 @@
 {
   "schema": 1,
-  "runId": "2026-09-14T23-38-10-661_05-postgres-permit-hold",
+  "runId": "2026-09-15T21-19-19-435_05-postgres-permit-hold",
   "demo": "05-postgres-permit-hold",
   "title": "A timed-out query still holds its permit",
-  "startedAt": "2026-09-14T23:38:10.661Z",
-  "finishedAt": "2026-09-14T23:38:10.662Z",
+  "startedAt": "2026-09-15T21:19:19.435Z",
+  "finishedAt": "2026-09-15T21:19:19.436Z",
   "library": {
-    "version": "0.4.0",
+    "version": "0.5.0",
     "source": "npm"
   },
   "topology": {
@@ -15,7 +15,7 @@
     "config": {
       "topology": "distributed",
       "scope": "global",
-      "namespace": "caracal-demo:2026-09-14T23-37-57-720_05-postgres-permit-hold",
+      "namespace": "caracal-demo:2026-09-15T21-19-06-735_05-postgres-permit-hold",
       "scope label": "on",
       "onCoordinatorError": "fail-open",
       "bulkhead limit": 1,
@@ -48,9 +48,9 @@
     "timedOut": 4,
     "latencyMs": {
       "p50": 4,
-      "p95": 513,
-      "p99": 517,
-      "max": 517
+      "p95": 516,
+      "p99": 520,
+      "max": 520
     },
     "rps": 5
   },
@@ -92,7 +92,7 @@
     "retriesDeclined": 41,
     "timeoutsTriggered": 4,
     "distinctScopes": 1,
-    "maxPermitHoldMs": 2046
+    "maxPermitHoldMs": 2029
   },
   "checks": [
     {
@@ -120,7 +120,7 @@
       "name": "permitHoldAtLeast",
       "claim": "a permit was held for at least 1500ms",
       "expected": "1500",
-      "actual": "2046",
+      "actual": "2029",
       "passed": true
     },
     {
@@ -134,10 +134,10 @@
   "passed": true,
   "notes": [
     "What does abort: unsupported mean for a distributed bulkhead?",
-    "runId: 2026-09-14T23-37-57-720_05-postgres-permit-hold"
+    "runId: 2026-09-15T21-19-06-735_05-postgres-permit-hold"
   ],
   "witness": {
-    "samples": 541,
+    "samples": 465,
     "peakInFlight": 0,
     "peakByScope": {},
     "requests": 0,

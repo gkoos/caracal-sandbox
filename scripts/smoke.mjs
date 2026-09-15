@@ -12,6 +12,7 @@
  *   npm run smoke                          # healthy dependency, local policies
  *   npm run smoke:distributed              # same workload, one shared budget
  *   npm run smoke:breaker                  # watch the breaker open instead
+ *   npm run smoke:overload                 # limit below concurrency: shed, do not open the breaker
  *   CARACAL_OTEL=off npm run smoke         # no SDK, no stack queries
  *
  * With `npm run`, options must be inside the script (see package.json) or passed
@@ -75,10 +76,15 @@ const failureRate = Number(arg("failure-rate", process.env.FAILURE_RATE ?? 0))
 const retryAttempts = Number(
   arg("retry-attempts", process.env.RETRY_MAX_ATTEMPTS ?? 2),
 )
+// A limit below the offered concurrency means the run sheds on purpose, which is
+// its own scenario with its own checks - see the overload branch below. It is
+// read from the environment because that is how the config reaches loadConfig.
+const bulkheadLimit = Number(process.env.BULKHEAD_LIMIT ?? concurrency)
+const sheds = bulkheadLimit < concurrency
 // The demo label identifies the *scenario*, not just the topology: `compare`
 // resolves a selector to that scenario's latest run, so two variants of the same
 // topology must not share a name or they overwrite each other's column.
-const variant = failureRate > 0 ? "-breaker" : ""
+const variant = failureRate > 0 ? "-breaker" : sheds ? "-overload" : ""
 const demo = `smoke-${topology}${variant}`
 const otelSetting = String(
   arg("otel", process.env.CARACAL_OTEL ?? "on"),
@@ -149,7 +155,7 @@ const config = loadConfig({
   TOPOLOGY: topology,
   SCOPE: process.env.SCOPE ?? "global",
   CARACAL_NAMESPACE: `caracal-demo:${runId}`,
-  BULKHEAD_LIMIT: process.env.BULKHEAD_LIMIT ?? String(concurrency),
+  BULKHEAD_LIMIT: String(bulkheadLimit),
   RETRY_MAX_ATTEMPTS: String(retryAttempts),
   BREAKER_MINIMUM_THROUGHPUT: process.env.BREAKER_MINIMUM_THROUGHPUT ?? "10",
   BREAKER_OPEN_MS: process.env.BREAKER_OPEN_MS ?? "1000",
@@ -238,7 +244,7 @@ const checks = [
     params: { type: "execution.settled", value: requests },
   },
 ]
-if (failureRate === 0) {
+if (failureRate === 0 && !sheds) {
   // A healthy dependency is the case where every claim must hold exactly.
   checks.push({
     name: "eventCountAtLeast",
@@ -246,6 +252,19 @@ if (failureRate === 0) {
   })
   checks.push({ name: "successRateAtLeast", params: { value: 0.99 } })
   checks.push({ name: "refusedAtMost", params: { value: 0 } })
+} else if (failureRate === 0) {
+  // The overload variant: the limit is below the offered concurrency, so the
+  // surplus is shed as `capacity` and never reaches the adapter. Both halves of
+  // that matter - the shedding has to be real, and it must not open the breaker.
+  // This is the run that produced finding 3.
+  checks.push({
+    name: "rejectionsByReasonAtLeast",
+    params: {
+      reason: "capacity",
+      value: Math.max(1, Math.floor(requests * 0.1)),
+    },
+  })
+  checks.push({ name: "breakerOpensAtMost", params: { value: 0 } })
 } else {
   // With failures injected, the breaker has to shed traffic - otherwise this
   // smoke is not exercising the rejection path at all. Note the arithmetic this

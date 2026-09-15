@@ -1,12 +1,12 @@
 {
   "schema": 1,
-  "runId": "2026-09-14T23-38-39-190_07-chaos",
+  "runId": "2026-09-15T21-20-25-991_07-chaos",
   "demo": "07-chaos",
   "title": "The invariants hold while things die",
-  "startedAt": "2026-09-14T23:38:39.190Z",
-  "finishedAt": "2026-09-14T23:38:39.190Z",
+  "startedAt": "2026-09-15T21:20:25.991Z",
+  "finishedAt": "2026-09-15T21:20:25.992Z",
   "library": {
-    "version": "0.4.0",
+    "version": "0.5.0",
     "source": "npm"
   },
   "topology": {
@@ -15,7 +15,7 @@
     "config": {
       "topology": "distributed",
       "scope": "global",
-      "namespace": "caracal-demo:2026-09-14T23-38-21-076_07-chaos",
+      "namespace": "caracal-demo:2026-09-15T21-20-07-856_07-chaos",
       "scope label": "on",
       "onCoordinatorError": "fail-open",
       "bulkhead limit": 3,
@@ -35,82 +35,82 @@
     "concurrency": 12,
     "replicas": 4,
     "byOperation": {
-      "orders.get": 628
+      "orders.get": 588
     }
   },
   "client": {
-    "requests": 628,
-    "success": 128,
-    "failure": 117,
+    "requests": 588,
+    "success": 126,
+    "failure": 109,
     "refusedByReason": {
-      "bulkhead:capacity": 382,
-      "bulkhead:lease-lost": 1
+      "bulkhead:capacity": 351,
+      "bulkhead:lease-lost": 2
     },
     "timedOut": 0,
     "latencyMs": {
       "p50": 3,
-      "p95": 296,
-      "p99": 968,
-      "max": 1765
+      "p95": 301,
+      "p99": 1168,
+      "max": 1747
     },
-    "rps": 50
+    "rps": 47
   },
   "caracal": {
     "executionsByOutcome": {
-      "failure": 381,
-      "success": 128
+      "failure": 352,
+      "success": 126
     },
     "attemptsByClassification": {
-      "success": 128,
-      "ignored": 1
+      "success": 126,
+      "ignored": 2
     },
     "eventsByType": {
-      "execution.started": 509,
-      "bulkhead.admitted": 129,
-      "attempt.started": 129,
-      "bulkhead.rejected": 380,
-      "retry.declined": 381,
-      "execution.settled": 509,
-      "attempt.settled": 129,
-      "bulkhead.released": 129,
-      "breaker.observation": 128,
-      "bulkhead.lease-lost": 1,
-      "bulkhead.degraded": 1
+      "execution.started": 479,
+      "bulkhead.admitted": 128,
+      "attempt.started": 128,
+      "bulkhead.rejected": 350,
+      "retry.declined": 352,
+      "execution.settled": 478,
+      "attempt.settled": 128,
+      "bulkhead.released": 128,
+      "breaker.observation": 126,
+      "bulkhead.lease-lost": 2,
+      "bulkhead.degraded": 2
     },
     "breakerStateChanges": {},
     "breakerOpens": 0,
     "breakerOpensByScope": {},
     "breakerRejectionsByState": {},
     "bulkheadRejectionsByReason": {
-      "capacity": 380
+      "capacity": 350
     },
     "bulkheadRejectionsByScope": {
-      "global": 380
+      "global": 350
     },
     "peakProbesInFlightByScope": {},
-    "leaseLost": 1,
-    "degraded": 1,
+    "leaseLost": 2,
+    "degraded": 2,
     "staleObservations": 0,
     "coordinatorErrors": 0,
     "retriesScheduled": 0,
-    "retriesDeclined": 381,
+    "retriesDeclined": 352,
     "timeoutsTriggered": 0,
     "distinctScopes": 1,
-    "maxPermitHoldMs": 1762
+    "maxPermitHoldMs": 1652
   },
   "checks": [
     {
       "name": "requestsAtLeast",
       "claim": "the run issued at least 200 requests",
       "expected": "200",
-      "actual": "628",
+      "actual": "588",
       "passed": true
     },
     {
       "name": "chaosSamplesAtLeast",
       "claim": "the sampler took at least 50 lease sample(s)",
       "expected": "50",
-      "actual": "207",
+      "actual": "217",
       "passed": true
     },
     {
@@ -131,17 +131,17 @@
       "name": "eventCountAtLeast",
       "claim": "the stream contained at least 1 `bulkhead.lease-lost` event(s)",
       "expected": "1",
-      "actual": "1",
+      "actual": "2",
       "passed": true
     }
   ],
   "passed": true,
   "notes": [
     "Does the shared budget survive a killed worker and a frozen worker?",
-    "runId: 2026-09-14T23-38-21-076_07-chaos"
+    "runId: 2026-09-15T21-20-07-856_07-chaos"
   ],
   "witness": {
-    "samples": 808,
+    "samples": 833,
     "peakInFlight": 3,
     "peakByScope": {
       "global": 3
@@ -150,14 +150,14 @@
     "failures": 0
   },
   "coordination": {
-    "commands": 1310,
-    "evalsha": 839,
+    "commands": 1228,
+    "evalsha": 787,
     "eval": 0,
     "errors": 0,
     "roundTripsPerExecution": 2.57
   },
   "chaos": {
-    "samples": 207,
+    "samples": 217,
     "maxLiveLeases": 3,
     "finalLiveLeases": 0,
     "actions": [

@@ -27,9 +27,11 @@ Change `replicas` to `1` (and lower `peakInFlightAtLeast` to match) and re-run: 
 - **Bulkhead occupancy** - four separate curves, each capped at 5, because each process enforces its own limit.
 - **Breaker** - nothing happens: the dependency is healthy, and nothing sheds.
 
-## The trap this demo is *not* hitting (see docs/findings.md, finding 3)
+## The trap this demo *used to* hit (see docs/findings.md, finding 3)
 
-`concurrency: 20` with `limit: 5` works here only because the load spreads to ~5 per replica, so the bulkhead rarely refuses. Push `concurrency` above `replicas x limit` and the bulkhead starts shedding; those rejections are classified as failures by the outer breaker, which then opens and sheds everything under a different reason. That is the *wrong* reason for the breaker to open, and it is demo `01`'s follow-up - try `--concurrency`-style overrides once the runner grows one, or read finding 3 for the one-line fix.
+`concurrency: 20` with `limit: 5` works here only because the load spreads to ~5 per replica, so the bulkhead rarely refuses. Push `concurrency` above `replicas x limit` and the bulkhead starts shedding - and against caracal `0.4.0` those rejections were classified as failures by the outer breaker, which then opened and shed everything under a different reason. That is the *wrong* reason for the breaker to open, and it is why the pipeline is the subject of this demo. `@gkoos/caracal@0.5.0` stopped counting a refusal the adapter never ran for, so the same override now sheds without touching the breaker; `npm run smoke:overload` asserts exactly that pair.
+
+One caveat when reading the numbers: this study's absolute refusal count is host-sensitive - a slower or busier host holds permits longer, so more arrivals find the replica full. The recorded baseline (`82`) and `refusedAtMost` were calibrated on the author's machine; a host that sheds twice as many fails that check on `0.4.0` and `0.5.0` alike. `successRateAtLeast` is the machine-independent check.
 
 ## Compare with
 

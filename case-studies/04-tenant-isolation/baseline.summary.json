@@ -1,12 +1,12 @@
 {
   "schema": 1,
-  "runId": "2026-09-14T23-37-51-096_04-tenant-isolation",
+  "runId": "2026-09-15T21-19-05-421_04-tenant-isolation",
   "demo": "04-tenant-isolation",
   "title": "One noisy tenant cannot spend another's budget",
-  "startedAt": "2026-09-14T23:37:51.096Z",
-  "finishedAt": "2026-09-14T23:37:51.096Z",
+  "startedAt": "2026-09-15T21:19:05.421Z",
+  "finishedAt": "2026-09-15T21:19:05.421Z",
   "library": {
-    "version": "0.4.0",
+    "version": "0.5.0",
     "source": "npm"
   },
   "topology": {
@@ -15,7 +15,7 @@
     "config": {
       "topology": "distributed",
       "scope": "tenant",
-      "namespace": "caracal-demo:2026-09-14T23-37-31-350_04-tenant-isolation",
+      "namespace": "caracal-demo:2026-09-15T21-18-45-670_04-tenant-isolation",
       "scope label": "off (unbounded cardinality)",
       "onCoordinatorError": "fail-open",
       "bulkhead limit": 5,
@@ -35,45 +35,45 @@
     "concurrency": 20,
     "replicas": 4,
     "byOperation": {
-      "orders.get": 4539
+      "orders.get": 4568
     }
   },
   "client": {
-    "requests": 4539,
-    "success": 4457,
+    "requests": 4568,
+    "success": 4485,
     "failure": 23,
     "refusedByReason": {
-      "breaker-open": 59
+      "breaker-open": 60
     },
     "timedOut": 0,
     "latencyMs": {
-      "p50": 47,
+      "p50": 45,
       "p95": 56,
-      "p99": 72,
-      "max": 161
+      "p99": 66,
+      "max": 160
     },
-    "rps": 301
+    "rps": 303
   },
   "caracal": {
     "executionsByOutcome": {
-      "success": 4480,
-      "failure": 59
+      "success": 4508,
+      "failure": 60
     },
     "attemptsByClassification": {
-      "success": 4457,
+      "success": 4485,
       "retryable": 46
     },
     "eventsByType": {
-      "execution.started": 4539,
-      "bulkhead.admitted": 4503,
-      "attempt.started": 4503,
-      "attempt.settled": 4503,
-      "bulkhead.released": 4503,
-      "breaker.observation": 4479,
-      "execution.settled": 4539,
+      "execution.started": 4568,
+      "bulkhead.admitted": 4531,
+      "attempt.started": 4531,
+      "attempt.settled": 4531,
+      "bulkhead.released": 4531,
+      "breaker.observation": 4507,
+      "execution.settled": 4568,
       "retry.scheduled": 23,
       "retry.exhausted": 23,
-      "breaker.rejected": 59,
+      "breaker.rejected": 60,
       "breaker.state-changed": 5,
       "breaker.probe-started": 3,
       "breaker.observation-stale": 1
@@ -87,7 +87,7 @@
       "tenant:t-49": 3
     },
     "breakerRejectionsByState": {
-      "open": 59
+      "open": 60
     },
     "bulkheadRejectionsByReason": {},
     "bulkheadRejectionsByScope": {},
@@ -102,7 +102,7 @@
     "retriesDeclined": 0,
     "timeoutsTriggered": 0,
     "distinctScopes": 50,
-    "maxPermitHoldMs": 76
+    "maxPermitHoldMs": 77
   },
   "checks": [
     {
@@ -116,14 +116,14 @@
       "name": "witnessSamplesAtLeast",
       "claim": "the dependency took at least 200 samples",
       "expected": "200",
-      "actual": "1138",
+      "actual": "1212",
       "passed": true
     },
     {
       "name": "requestsAtLeast",
       "claim": "the run issued at least 1000 requests",
       "expected": "1000",
-      "actual": "4539",
+      "actual": "4568",
       "passed": true
     },
     {
@@ -165,7 +165,7 @@
       "name": "coordinatorRoundTripsAtMost",
       "claim": "at most 8 coordinator round trip(s) per execution",
       "expected": "8",
-      "actual": "3.99",
+      "actual": "3.98",
       "passed": true
     },
     {
@@ -179,48 +179,48 @@
   "passed": true,
   "notes": [
     "Does one tenant's failure stay in its own scope?",
-    "runId: 2026-09-14T23-37-31-350_04-tenant-isolation"
+    "runId: 2026-09-15T21-18-45-670_04-tenant-isolation"
   ],
   "witness": {
-    "samples": 1138,
+    "samples": 1212,
     "peakInFlight": 20,
     "peakByScope": {
+      "tenant:t-27": 3,
       "tenant:t-20": 3,
       "tenant:t-48": 3,
-      "tenant:t-27": 3,
       "tenant:t-9": 3,
-      "tenant:t-26": 3,
       "tenant:t-12": 2,
       "tenant:t-7": 3,
-      "tenant:t-34": 3,
+      "tenant:t-26": 4,
       "tenant:t-45": 3,
+      "tenant:t-8": 3,
+      "tenant:t-34": 3,
       "tenant:t-46": 3,
-      "tenant:t-1": 3,
       "tenant:t-18": 2,
       "tenant:t-47": 2,
-      "tenant:t-8": 3,
+      "tenant:t-1": 3,
       "tenant:t-16": 3,
       "tenant:t-6": 3,
       "tenant:t-2": 3,
-      "tenant:t-41": 3,
-      "tenant:t-0": 3,
+      "tenant:t-32": 3,
       "tenant:t-21": 4,
-      "tenant:t-32": 4,
       "tenant:t-36": 3,
+      "tenant:t-0": 3,
+      "tenant:t-41": 4,
       "tenant:t-30": 3,
       "tenant:t-49": 2,
-      "tenant:t-25": 3,
-      "tenant:t-19": 3,
+      "tenant:t-25": 2,
       "tenant:t-43": 3,
+      "tenant:t-19": 3,
       "tenant:t-29": 3,
-      "tenant:t-3": 3,
       "tenant:t-5": 3,
       "tenant:t-24": 3,
+      "tenant:t-3": 3,
       "tenant:t-40": 3,
       "tenant:t-38": 3,
       "tenant:t-23": 3,
+      "tenant:t-42": 2,
       "tenant:t-44": 3,
-      "tenant:t-42": 3,
       "tenant:t-15": 2,
       "tenant:t-31": 3,
       "tenant:t-39": 3,
@@ -236,14 +236,14 @@
       "tenant:t-28": 3,
       "tenant:t-17": 3
     },
-    "requests": 4503,
+    "requests": 4531,
     "failures": 46
   },
   "coordination": {
-    "commands": 18089,
-    "evalsha": 13548,
-    "eval": 2,
-    "errors": 2,
-    "roundTripsPerExecution": 3.99
+    "commands": 18201,
+    "evalsha": 13633,
+    "eval": 0,
+    "errors": 0,
+    "roundTripsPerExecution": 3.98
   }
 }
