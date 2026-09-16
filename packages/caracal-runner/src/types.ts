@@ -57,6 +57,8 @@ export type WitnessView = {
   peakByScope: Record<string, number>
   requests: number
   failures: number
+  /** Responses the client abandoned before the body was written (dispose). */
+  abandoned?: number
   /** The dependency's configured ceiling, when it has one. */
   capacity?: number
 }

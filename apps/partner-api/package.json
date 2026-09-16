@@ -8,7 +8,7 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@gkoos/caracal": "0.5.0",
+    "@gkoos/caracal": "0.6.0",
     "caracal-observability": "*",
     "caracal-runner": "*"
   }

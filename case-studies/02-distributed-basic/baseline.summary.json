@@ -1,12 +1,12 @@
 {
   "schema": 1,
-  "runId": "2026-09-15T21-18-20-271_02-distributed-basic",
+  "runId": "2026-09-16T20-37-01-150_02-distributed-basic",
   "demo": "02-distributed-basic",
   "title": "Same code, one shared budget",
-  "startedAt": "2026-09-15T21:18:20.271Z",
-  "finishedAt": "2026-09-15T21:18:20.272Z",
+  "startedAt": "2026-09-16T20:37:01.150Z",
+  "finishedAt": "2026-09-16T20:37:01.151Z",
   "library": {
-    "version": "0.5.0",
+    "version": "0.6.0",
     "source": "npm"
   },
   "topology": {
@@ -15,7 +15,7 @@
     "config": {
       "topology": "distributed",
       "scope": "global",
-      "namespace": "caracal-demo:2026-09-15T21-18-00-526_02-distributed-basic",
+      "namespace": "caracal-demo:2026-09-16T20-36-41-432_02-distributed-basic",
       "scope label": "on",
       "onCoordinatorError": "fail-open",
       "bulkhead limit": 5,
@@ -25,6 +25,7 @@
       "breaker failure threshold": 0.5,
       "breaker open": "5000ms",
       "breaker half-open probes": 3,
+      "breaker probe lease": "10000ms",
       "timeout": "2000ms",
       "retry attempts": 2,
       "redis command timeout": "1000ms"
@@ -35,53 +36,53 @@
     "concurrency": 20,
     "replicas": 4,
     "byOperation": {
-      "orders.get": 6456
+      "orders.get": 6411
     }
   },
   "client": {
-    "requests": 6456,
-    "success": 1620,
+    "requests": 6411,
+    "success": 1609,
     "failure": 0,
     "refusedByReason": {
-      "bulkhead:capacity": 4836
+      "bulkhead:capacity": 4802
     },
     "timedOut": 0,
     "latencyMs": {
       "p50": 3,
       "p95": 51,
-      "p99": 58,
-      "max": 93
+      "p99": 62,
+      "max": 84
     },
-    "rps": 428
+    "rps": 425
   },
   "caracal": {
     "executionsByOutcome": {
-      "failure": 4836,
-      "success": 1620
+      "failure": 4802,
+      "success": 1609
     },
     "attemptsByClassification": {
-      "success": 1620
+      "success": 1609
     },
     "eventsByType": {
-      "execution.started": 6456,
-      "bulkhead.admitted": 1620,
-      "attempt.started": 1620,
-      "bulkhead.rejected": 4836,
-      "retry.declined": 4836,
-      "execution.settled": 6456,
-      "attempt.settled": 1620,
-      "bulkhead.released": 1620,
-      "breaker.observation": 1620
+      "execution.started": 6411,
+      "bulkhead.admitted": 1609,
+      "attempt.started": 1609,
+      "bulkhead.rejected": 4802,
+      "retry.declined": 4802,
+      "execution.settled": 6411,
+      "attempt.settled": 1609,
+      "bulkhead.released": 1609,
+      "breaker.observation": 1609
     },
     "breakerStateChanges": {},
     "breakerOpens": 0,
     "breakerOpensByScope": {},
     "breakerRejectionsByState": {},
     "bulkheadRejectionsByReason": {
-      "capacity": 4836
+      "capacity": 4802
     },
     "bulkheadRejectionsByScope": {
-      "global": 4836
+      "global": 4802
     },
     "peakProbesInFlightByScope": {},
     "leaseLost": 0,
@@ -89,10 +90,10 @@
     "staleObservations": 0,
     "coordinatorErrors": 0,
     "retriesScheduled": 0,
-    "retriesDeclined": 4836,
+    "retriesDeclined": 4802,
     "timeoutsTriggered": 0,
     "distinctScopes": 1,
-    "maxPermitHoldMs": 74
+    "maxPermitHoldMs": 67
   },
   "checks": [
     {
@@ -106,7 +107,7 @@
       "name": "witnessSamplesAtLeast",
       "claim": "the dependency took at least 200 samples",
       "expected": "200",
-      "actual": "987",
+      "actual": "986",
       "passed": true
     },
     {
@@ -127,14 +128,14 @@
       "name": "requestsAtLeast",
       "claim": "the run issued at least 500 requests",
       "expected": "500",
-      "actual": "6456",
+      "actual": "6411",
       "passed": true
     },
     {
       "name": "rejectionsByReasonAtLeast",
       "claim": "at least 100 rejection(s) with reason `capacity`",
       "expected": "100",
-      "actual": "4836",
+      "actual": "4802",
       "passed": true
     },
     {
@@ -155,30 +156,31 @@
       "name": "evalshaRatioAtLeast",
       "claim": "at least 80% of script calls were EVALSHA",
       "expected": ">= 80%",
-      "actual": "100.0%",
+      "actual": "99.9%",
       "passed": true
     }
   ],
   "passed": true,
   "notes": [
     "What changes when the budget belongs to the downstream, not the process?",
-    "runId: 2026-09-15T21-18-00-526_02-distributed-basic"
+    "runId: 2026-09-16T20-36-41-432_02-distributed-basic"
   ],
   "witness": {
-    "samples": 987,
+    "samples": 986,
     "peakInFlight": 5,
     "peakByScope": {
       "global": 5
     },
-    "requests": 1620,
+    "requests": 1609,
     "failures": 0,
+    "abandoned": 0,
     "capacity": 8
   },
   "coordination": {
-    "commands": 16152,
-    "evalsha": 9696,
-    "eval": 0,
-    "errors": 0,
+    "commands": 16045,
+    "evalsha": 9629,
+    "eval": 5,
+    "errors": 5,
     "roundTripsPerExecution": 2.5
   }
 }

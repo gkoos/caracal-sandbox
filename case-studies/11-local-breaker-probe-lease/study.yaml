@@ -1,0 +1,43 @@
+# A hung half-open probe releases its slot after the probe lease.
+#
+# caracal 0.6.0 armed the local circuit breaker's half-open probe with a lease
+# (`probeLeaseTtlMs`). An adapter promise that never settles releases its slot
+# when the lease expires, so a hung probe can no longer wedge the breaker in
+# half-open for the lifetime of the process.
+#
+#   npm run demo 11
+id: "11-local-breaker-probe-lease"
+title: "A hung half-open probe releases its slot after the probe lease"
+question: "Can a hung probe wedge the local breaker in half-open?"
+
+topology:
+  policies: local
+  scope: global
+  replicas: 1
+  env:
+    BREAKER_MINIMUM_THROUGHPUT: "5"
+    BREAKER_FAILURE_THRESHOLD: "0.5"
+    BREAKER_OPEN_MS: "3000"
+    BREAKER_HALF_OPEN_PROBES: "1"
+    BREAKER_PROBE_LEASE_MS: "1000"   # the probe lease, shorter than the timeout
+    POLICY_TIMEOUT_MS: "3000"        # timeouts open the breaker
+    RETRY_MAX_ATTEMPTS: "1"
+
+scenario:
+  durationMs: 15000
+  concurrency: 10
+  targetRps: 20
+  seed: 1
+  operations:
+    - { name: "orders.get", method: GET, path: "/orders/{id}", weight: 1 }
+  dependency:
+    hangRate: 1            # every call hangs, so every probe hangs too
+
+checks:
+  - { name: witnessPresent }
+  - { name: requestsAtLeast, params: { value: 5 } }
+  # Timeouts opened the breaker...
+  - { name: breakerOpensEquals, params: { value: 1 } }
+  # ...and the probe lease reclaimed the hung probes, so half-open kept admitting.
+  - { name: eventCountAtLeast, params: { type: "breaker.probe-started", value: 3 } }
+  - { name: eventCountAtLeast, params: { type: "breaker.probe-expired", value: 3 } }

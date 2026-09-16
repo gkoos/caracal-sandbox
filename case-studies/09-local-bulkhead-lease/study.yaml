@@ -1,0 +1,40 @@
+# A hung local holder is aborted after its lease.
+#
+# caracal 0.6.0 gave `bulkhead.local` a `leaseMs`. A fetch-backed operation with
+# `abort: "supported"` is aborted when its permit outlives the lease, so the
+# permit is released and the next caller is admitted - a hung holder no longer
+# wedges the bulkhead at `limit`.
+#
+#   npm run demo 09
+id: "09-local-bulkhead-lease"
+title: "A hung local holder is aborted after its lease"
+question: "What does a local bulkhead lease reclaim when the holder hangs?"
+
+topology:
+  policies: local
+  scope: global
+  replicas: 1
+  env:
+    BULKHEAD_LIMIT: "1"          # one permit, so the hold is visible
+    BULKHEAD_LEASE_MS: "1000"    # abort a holder held longer than this
+    POLICY_TIMEOUT_MS: "10000"   # longer than the lease: the lease fires first
+    RETRY_MAX_ATTEMPTS: "1"
+    BREAKER_MINIMUM_THROUGHPUT: "100"
+
+scenario:
+  durationMs: 6000
+  concurrency: 2
+  targetRps: 2
+  seed: 1
+  operations:
+    - { name: "orders.get", method: GET, path: "/orders/{id}", weight: 1 }
+  dependency:
+    hangRate: 1                 # the downstream hangs every request
+
+checks:
+  - { name: witnessPresent }
+  - { name: requestsAtLeast, params: { value: 5 } }
+  # The lease fired - a holder outlived its permit.
+  - { name: eventCountAtLeast, params: { type: "bulkhead.lease-lost", value: 3 } }
+  # ...and the permit was released after the abort.
+  - { name: eventCountAtLeast, params: { type: "bulkhead.released", value: 3 } }

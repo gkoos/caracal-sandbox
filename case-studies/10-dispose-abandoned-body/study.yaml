@@ -1,0 +1,40 @@
+# Retry abandons a 5xx body and dispose cancels it.
+#
+# caracal 0.6.0 added `Adapter.dispose(outcome, context)`. When `retry`
+# schedules another attempt, the abandoned result is disposed rather than
+# returned, so an adapter can release its body. The fetch adapter cancels the
+# abandoned response's body; the dependency sees the client disconnect before
+# the body was written.
+#
+#   npm run demo 10
+id: "10-dispose-abandoned-body"
+title: "Retry abandons a 5xx body and dispose cancels it"
+question: "Does a retried 5xx leak its response body?"
+
+topology:
+  policies: local
+  scope: global
+  replicas: 1
+  env:
+    RETRY_MAX_ATTEMPTS: "2"
+    POLICY_TIMEOUT_MS: "5000"
+    BREAKER_MINIMUM_THROUGHPUT: "1000"   # keep the breaker out of this story
+
+scenario:
+  durationMs: 6000
+  concurrency: 5
+  targetRps: 10
+  seed: 1
+  operations:
+    - { name: "orders.get", method: GET, path: "/orders/{id}", weight: 1 }
+  dependency:
+    failureRate: 1            # every response is a 5xx
+    bodyDelayMs: 500          # headers first, body 500ms later
+
+checks:
+  - { name: witnessPresent }
+  - { name: requestsAtLeast, params: { value: 10 } }
+  # The retry fired - the precondition for disposing the first body.
+  - { name: eventCountAtLeast, params: { type: "retry.scheduled", value: 20 } }
+  # ...and the dependency saw the abandoned body cancelled before it was written.
+  - { name: witnessAbandonedAtLeast, params: { value: 20 } }

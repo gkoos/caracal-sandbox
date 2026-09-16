@@ -1,0 +1,165 @@
+{
+  "schema": 1,
+  "runId": "2026-09-16T20-35-05-288_11-local-breaker-probe-lease",
+  "demo": "11-local-breaker-probe-lease",
+  "title": "A hung half-open probe releases its slot after the probe lease",
+  "startedAt": "2026-09-16T20:35:05.288Z",
+  "finishedAt": "2026-09-16T20:35:05.289Z",
+  "library": {
+    "version": "0.6.0",
+    "source": "npm"
+  },
+  "topology": {
+    "policies": "local",
+    "scope": "global",
+    "config": {
+      "topology": "local",
+      "scope": "global",
+      "namespace": "caracal-demo:2026-09-16T20-34-41-084_11-local-breaker-probe-lease",
+      "scope label": "on",
+      "onCoordinatorError": "fail-open",
+      "bulkhead limit": 5,
+      "bulkhead lease": "5000ms",
+      "queue": "none (immediate reject)",
+      "breaker minimum throughput": 5,
+      "breaker failure threshold": 0.5,
+      "breaker open": "3000ms",
+      "breaker half-open probes": 1,
+      "breaker probe lease": "1000ms",
+      "timeout": "3000ms",
+      "retry attempts": 1,
+      "redis command timeout": "1000ms"
+    }
+  },
+  "workload": {
+    "durationMs": 15000,
+    "concurrency": 10,
+    "replicas": 1,
+    "byOperation": {
+      "orders.get": 419
+    }
+  },
+  "client": {
+    "requests": 419,
+    "success": 0,
+    "failure": 0,
+    "refusedByReason": {
+      "bulkhead:capacity": 71,
+      "breaker-open": 331
+    },
+    "timedOut": 17,
+    "latencyMs": {
+      "p50": 1,
+      "p95": 3,
+      "p99": 3014,
+      "max": 3020
+    },
+    "rps": 24
+  },
+  "caracal": {
+    "executionsByOutcome": {
+      "failure": 419
+    },
+    "attemptsByClassification": {
+      "retryable": 17
+    },
+    "eventsByType": {
+      "execution.started": 419,
+      "bulkhead.admitted": 17,
+      "attempt.started": 17,
+      "bulkhead.rejected": 71,
+      "retry.declined": 71,
+      "execution.settled": 419,
+      "timeout.triggered": 17,
+      "attempt.settled": 17,
+      "bulkhead.released": 17,
+      "breaker.observation": 5,
+      "breaker.state-changed": 2,
+      "breaker.rejected": 331,
+      "breaker.probe-started": 9,
+      "breaker.probe-expired": 9
+    },
+    "breakerStateChanges": {
+      "open": 1,
+      "half-open": 1
+    },
+    "breakerOpens": 1,
+    "breakerOpensByScope": {
+      "process": 1
+    },
+    "breakerRejectionsByState": {
+      "open": 82,
+      "half-open": 249
+    },
+    "bulkheadRejectionsByReason": {
+      "capacity": 71
+    },
+    "bulkheadRejectionsByScope": {
+      "process": 71
+    },
+    "peakProbesInFlightByScope": {
+      "process": 9
+    },
+    "leaseLost": 0,
+    "degraded": 0,
+    "staleObservations": 0,
+    "coordinatorErrors": 0,
+    "retriesScheduled": 0,
+    "retriesDeclined": 71,
+    "timeoutsTriggered": 17,
+    "distinctScopes": 1,
+    "maxPermitHoldMs": 3015
+  },
+  "checks": [
+    {
+      "name": "witnessPresent",
+      "claim": "the dependency reported its own concurrency",
+      "expected": "present",
+      "actual": "present",
+      "passed": true
+    },
+    {
+      "name": "requestsAtLeast",
+      "claim": "the run issued at least 5 requests",
+      "expected": "5",
+      "actual": "419",
+      "passed": true
+    },
+    {
+      "name": "breakerOpensEquals",
+      "claim": "the failure opened the breaker exactly 1 time(s)",
+      "expected": "1",
+      "actual": "1",
+      "passed": true
+    },
+    {
+      "name": "eventCountAtLeast",
+      "claim": "the stream contained at least 3 `breaker.probe-started` event(s)",
+      "expected": "3",
+      "actual": "9",
+      "passed": true
+    },
+    {
+      "name": "eventCountAtLeast",
+      "claim": "the stream contained at least 3 `breaker.probe-expired` event(s)",
+      "expected": "3",
+      "actual": "9",
+      "passed": true
+    }
+  ],
+  "passed": true,
+  "notes": [
+    "Can a hung probe wedge the local breaker in half-open?",
+    "runId: 2026-09-16T20-34-41-084_11-local-breaker-probe-lease"
+  ],
+  "witness": {
+    "samples": 1165,
+    "peakInFlight": 5,
+    "peakByScope": {
+      "global": 5
+    },
+    "requests": 17,
+    "failures": 0,
+    "abandoned": 0
+  }
+}

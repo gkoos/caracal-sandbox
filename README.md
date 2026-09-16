@@ -98,7 +98,7 @@ The case studies run against the published package. To test unreleased changes:
 
 ```sh
 npm run link:local    # packs ../caracal and installs the tarball
-npm run link:npm      # back to @gkoos/caracal@0.5.0
+npm run link:npm      # back to @gkoos/caracal@0.6.0
 ```
 
 `npm run verify:api` fails if the surface drifts from what the sandbox uses.

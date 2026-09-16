@@ -131,8 +131,8 @@ function replicaStack(
 }
 
 // Shared scaffold for the request-flow diagrams: replicas, loadgen, downstream.
-function scaffold(parts, { replicasSub, loadgenSub }) {
-  replicaStack(parts, { n: 4, sub: replicasSub })
+function scaffold(parts, { replicasSub, loadgenSub, replicas = 4 }) {
+  replicaStack(parts, { n: replicas, sub: replicasSub })
   parts.push(
     node({
       x: 20,
@@ -156,7 +156,7 @@ function scaffold(parts, { replicasSub, loadgenSub }) {
       sub: "the dependency",
     }),
   )
-  for (let i = 0; i < 4; i += 1)
+  for (let i = 0; i < replicas; i += 1)
     parts.push(arrow(345, 42 + i * 58, 558, 125 + i * 14))
 }
 
@@ -451,6 +451,60 @@ const scenes = {
         390,
         345,
         "the budget lets 20 through, but the dependency can only serve 8 — so it overloads",
+      ),
+    )
+    return svg(780, 360, parts.join("\n"))
+  },
+
+  "09-local-bulkhead-lease"() {
+    const parts = []
+    scaffold(parts, {
+      replicas: 1,
+      replicasSub: () => "replica · bulkhead.local leaseMs 1s",
+      loadgenSub: "2 concurrent · hangs",
+    })
+    witnessUnder(parts, "witness: the hung holder is aborted")
+    parts.push(
+      caption(
+        390,
+        345,
+        "bulkhead.local(leaseMs) aborts the hung holder, so its permit is released",
+      ),
+    )
+    return svg(780, 360, parts.join("\n"))
+  },
+
+  "10-dispose-abandoned-body"() {
+    const parts = []
+    scaffold(parts, {
+      replicas: 1,
+      replicasSub: () => "replica · fetch dispose",
+      loadgenSub: "5xx · retried",
+    })
+    witnessUnder(parts, "witness: abandoned bodies")
+    parts.push(
+      caption(
+        390,
+        345,
+        "retry abandons the 5xx body and the adapter's dispose cancels it",
+      ),
+    )
+    return svg(780, 360, parts.join("\n"))
+  },
+
+  "11-local-breaker-probe-lease"() {
+    const parts = []
+    scaffold(parts, {
+      replicas: 1,
+      replicasSub: () => "replica · breaker probeLeaseTtlMs 1s",
+      loadgenSub: "hung probe",
+    })
+    witnessUnder(parts, "witness: the probe slot is reclaimed")
+    parts.push(
+      caption(
+        390,
+        345,
+        "a hung half-open probe releases its slot after probeLeaseTtlMs, so the breaker keeps admitting",
       ),
     )
     return svg(780, 360, parts.join("\n"))

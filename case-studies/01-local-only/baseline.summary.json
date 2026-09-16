@@ -1,12 +1,12 @@
 {
   "schema": 1,
-  "runId": "2026-09-15T21-17-59-130_01-local-only",
+  "runId": "2026-09-16T20-36-40-621_01-local-only",
   "demo": "01-local-only",
   "title": "Local policies, no Redis",
-  "startedAt": "2026-09-15T21:17:59.130Z",
-  "finishedAt": "2026-09-15T21:17:59.130Z",
+  "startedAt": "2026-09-16T20:36:40.621Z",
+  "finishedAt": "2026-09-16T20:36:40.622Z",
   "library": {
-    "version": "0.5.0",
+    "version": "0.6.0",
     "source": "npm"
   },
   "topology": {
@@ -15,7 +15,7 @@
     "config": {
       "topology": "local",
       "scope": "global",
-      "namespace": "caracal-demo:2026-09-15T21-17-39-410_01-local-only",
+      "namespace": "caracal-demo:2026-09-16T20-36-20-414_01-local-only",
       "scope label": "on",
       "onCoordinatorError": "fail-open",
       "bulkhead limit": 5,
@@ -25,6 +25,7 @@
       "breaker failure threshold": 0.5,
       "breaker open": "5000ms",
       "breaker half-open probes": 3,
+      "breaker probe lease": "10000ms",
       "timeout": "2000ms",
       "retry attempts": 2,
       "redis command timeout": "1000ms"
@@ -47,17 +48,17 @@
     },
     "timedOut": 0,
     "latencyMs": {
-      "p50": 47,
+      "p50": 46,
       "p95": 49,
-      "p99": 55,
-      "max": 80
+      "p99": 58,
+      "max": 81
     },
     "rps": 396
   },
   "caracal": {
     "executionsByOutcome": {
-      "success": 5888,
-      "failure": 80
+      "failure": 80,
+      "success": 5888
     },
     "attemptsByClassification": {
       "success": 5888
@@ -66,12 +67,12 @@
       "execution.started": 5968,
       "bulkhead.admitted": 5888,
       "attempt.started": 5888,
+      "bulkhead.rejected": 80,
+      "retry.declined": 80,
+      "execution.settled": 5968,
       "attempt.settled": 5888,
       "bulkhead.released": 5888,
-      "breaker.observation": 5888,
-      "execution.settled": 5968,
-      "bulkhead.rejected": 80,
-      "retry.declined": 80
+      "breaker.observation": 5888
     },
     "breakerStateChanges": {},
     "breakerOpens": 0,
@@ -92,7 +93,7 @@
     "retriesDeclined": 80,
     "timeoutsTriggered": 0,
     "distinctScopes": 1,
-    "maxPermitHoldMs": 67
+    "maxPermitHoldMs": 71
   },
   "checks": [
     {
@@ -106,7 +107,7 @@
       "name": "witnessSamplesAtLeast",
       "claim": "the dependency took at least 200 samples",
       "expected": "200",
-      "actual": "982",
+      "actual": "996",
       "passed": true
     },
     {
@@ -155,15 +156,16 @@
   "passed": true,
   "notes": [
     "What does a per-process limit mean when there are four processes?",
-    "runId: 2026-09-15T21-17-39-410_01-local-only"
+    "runId: 2026-09-16T20-36-20-414_01-local-only"
   ],
   "witness": {
-    "samples": 982,
+    "samples": 996,
     "peakInFlight": 20,
     "peakByScope": {
       "global": 20
     },
     "requests": 5888,
-    "failures": 0
+    "failures": 0,
+    "abandoned": 0
   }
 }

@@ -458,6 +458,19 @@ export const CHECKS: Record<string, CheckDefinition> = {
         (a, e) => a >= e,
       ),
   },
+  witnessAbandonedAtLeast: {
+    name: "witnessAbandonedAtLeast",
+    claim: (params) =>
+      `the dependency saw at least ${number(params, "value")} response(s) the client abandoned`,
+    description:
+      "The dispose signature: a client cancelled a response body before it was written.",
+    evaluate: (summary, params) =>
+      compare(
+        summary.witness?.abandoned,
+        number(params, "value"),
+        (a, e) => a >= e,
+      ),
+  },
   successRateAtMost: {
     name: "successRateAtMost",
     claim: (params) =>

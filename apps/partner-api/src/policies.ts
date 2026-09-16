@@ -62,6 +62,7 @@ export function buildPolicies(
       halfOpenProbes: config.breaker.halfOpenProbes,
       halfOpenSuccesses: config.breaker.halfOpenSuccesses,
       windowSize: config.breaker.windowSize,
+      probeLeaseTtlMs: config.breaker.probeLeaseTtlMs,
       onCoordinatorError: config.onCoordinatorError,
     })
     capacity = bulkhead.distributed({
@@ -80,10 +81,12 @@ export function buildPolicies(
       halfOpenProbes: config.breaker.halfOpenProbes,
       halfOpenSuccesses: config.breaker.halfOpenSuccesses,
       windowSize: config.breaker.windowSize,
+      probeLeaseTtlMs: config.breaker.probeLeaseTtlMs,
     })
     capacity = bulkhead.local({
       name: "partner-api-capacity",
       limit: config.bulkhead.limit,
+      leaseMs: config.bulkhead.leaseMs,
       ...(config.bulkhead.queue ? { queue: config.bulkhead.queue } : {}),
     })
   }

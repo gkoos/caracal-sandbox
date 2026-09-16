@@ -28,6 +28,14 @@ type Behavior = {
   failRegions: string[]
   /** Tenants that fail every request - the noisy-tenant lever. */
   failTenants: string[]
+  /** Rate (0-1) of requests that hang forever (never respond). */
+  hangRate: number
+  /** Regions that hang every request - the stuck-holder lever. */
+  hangRegions: string[]
+  /** Tenants that hang every request - the stuck-tenant lever. */
+  hangTenants: string[]
+  /** Delay between headers and body, so a client can cancel mid-response. */
+  bodyDelayMs: number
 }
 
 const port = Number(process.env.PORT ?? 4200)
@@ -40,10 +48,15 @@ const behavior: Behavior = {
   failureStatus: Number(process.env.FAILURE_STATUS ?? 500),
   failRegions: (process.env.FAIL_REGIONS ?? "").split(",").filter(Boolean),
   failTenants: (process.env.FAIL_TENANTS ?? "").split(",").filter(Boolean),
+  hangRate: Number(process.env.HANG_RATE ?? 0),
+  hangRegions: (process.env.HANG_REGIONS ?? "").split(",").filter(Boolean),
+  hangTenants: (process.env.HANG_TENANTS ?? "").split(",").filter(Boolean),
+  bodyDelayMs: Number(process.env.BODY_DELAY_MS ?? 0),
 }
 
 let requests = 0
 let failures = 0
+let abandoned = 0
 let inFlight = 0
 let peak = 0
 const inFlightByScope = new Map<string, number>()
@@ -102,13 +115,30 @@ async function work(
     return
   }
   enter(scope)
+
+  const region = request.headers["x-region"]
+  const tenant = request.headers["x-tenant-id"]
+  const regionHanging =
+    typeof region === "string" && behavior.hangRegions.includes(region)
+  const tenantHanging =
+    typeof tenant === "string" && behavior.hangTenants.includes(tenant)
+
   try {
+    if (regionHanging || tenantHanging || Math.random() < behavior.hangRate) {
+      // A hung request holds the connection open until the client aborts (a
+      // timeout or a bulkhead lease) - or forever. It never responds.
+      requestsByStatus.hang = (requestsByStatus.hang ?? 0) + 1
+      await new Promise<void>((resolve) => {
+        response.on("close", () => resolve())
+      })
+      return
+    }
+
     // Fixed latency with jitter, so a p50/p99 spread exists without a model.
     await sleep(behavior.latencyMs + Math.random() * behavior.latencyMs * 0.5)
-    const region = request.headers["x-region"]
+
     const regionFailing =
       typeof region === "string" && behavior.failRegions.includes(region)
-    const tenant = request.headers["x-tenant-id"]
     const tenantFailing =
       typeof tenant === "string" && behavior.failTenants.includes(tenant)
     if (
@@ -119,7 +149,7 @@ async function work(
       failures += 1
       requestsByStatus[String(behavior.failureStatus)] =
         (requestsByStatus[String(behavior.failureStatus)] ?? 0) + 1
-      json(response, behavior.failureStatus, {
+      await respond(response, behavior.failureStatus, {
         error: "downstream failure",
         scope,
         tookMs: Date.now() - started,
@@ -127,10 +157,49 @@ async function work(
       return
     }
     requestsByStatus["200"] = (requestsByStatus["200"] ?? 0) + 1
-    json(response, 200, { ok: true, scope, tookMs: Date.now() - started })
+    await respond(response, 200, {
+      ok: true,
+      scope,
+      tookMs: Date.now() - started,
+    })
   } finally {
     leave(scope)
   }
+}
+
+/**
+ * Writes a response, optionally splitting headers from the body so that a
+ * client that abandons the body (the adapter's `dispose`) is observable as a
+ * `close` before the body was written.
+ */
+async function respond(
+  response: ServerResponse,
+  status: number,
+  body: unknown,
+): Promise<void> {
+  response.writeHead(status, { "content-type": "application/json" })
+  const payload = JSON.stringify(body)
+  if (behavior.bodyDelayMs <= 0) {
+    response.end(payload)
+    return
+  }
+  response.flushHeaders()
+  await new Promise<void>((resolve) => {
+    let settled = false
+    const done = () => {
+      if (settled) return
+      settled = true
+      resolve()
+    }
+    response.on("close", () => {
+      if (!response.writableEnded) abandoned += 1
+      done()
+    })
+    setTimeout(() => {
+      response.end(payload)
+      done()
+    }, behavior.bodyDelayMs)
+  })
 }
 
 function prometheus(): string {
@@ -156,6 +225,7 @@ function prometheus(): string {
     lines.push(`downstream_requests_total{status="${status}"} ${count}`)
   }
   lines.push(`downstream_failures_total ${failures}`)
+  lines.push(`downstream_abandoned_total ${abandoned}`)
   if (capacity > 0) lines.push(`downstream_capacity ${capacity}`)
   return `${lines.join("\n")}\n`
 }
@@ -167,6 +237,7 @@ function witness() {
     peakByScope,
     requests,
     failures,
+    abandoned,
     capacity: capacity > 0 ? capacity : undefined,
   }
 }
@@ -174,6 +245,7 @@ function witness() {
 function reset(): void {
   requests = 0
   failures = 0
+  abandoned = 0
   inFlight = 0
   peak = 0
   inFlightByScope.clear()
@@ -228,6 +300,14 @@ const server = createServer((request, response) => {
             behavior.failRegions = next.failRegions
           if (Array.isArray(next.failTenants))
             behavior.failTenants = next.failTenants
+          if (typeof next.hangRate === "number")
+            behavior.hangRate = next.hangRate
+          if (Array.isArray(next.hangRegions))
+            behavior.hangRegions = next.hangRegions
+          if (Array.isArray(next.hangTenants))
+            behavior.hangTenants = next.hangTenants
+          if (typeof next.bodyDelayMs === "number")
+            behavior.bodyDelayMs = next.bodyDelayMs
           json(response, 200, { behavior })
         } catch {
           json(response, 400, { error: "bad body" })

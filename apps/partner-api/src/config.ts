@@ -39,6 +39,7 @@ export type AppConfig = {
     halfOpenProbes: number
     halfOpenSuccesses: number
     windowSize: number
+    probeLeaseTtlMs: number
   }
   timeoutMs: number
   retry: { maxAttempts: number; delayMs: number }
@@ -101,6 +102,7 @@ function regionUrls(env: NodeJS.ProcessEnv): Record<string, string> {
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   const queueLimit = int(env, "BULKHEAD_QUEUE_LIMIT", 0)
+  const breakerOpenMs = int(env, "BREAKER_OPEN_MS", 5_000)
   return {
     demo: env.DEMO ?? "adhoc",
     runId: env.RUN_ID ?? "unrecorded",
@@ -146,10 +148,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
       name: env.BREAKER_NAME ?? "partner-api",
       minimumThroughput: int(env, "BREAKER_MINIMUM_THROUGHPUT", 20),
       failureThreshold: fraction(env, "BREAKER_FAILURE_THRESHOLD", 0.5),
-      openMs: int(env, "BREAKER_OPEN_MS", 5_000),
+      openMs: breakerOpenMs,
       halfOpenProbes: int(env, "BREAKER_HALF_OPEN_PROBES", 3),
       halfOpenSuccesses: int(env, "BREAKER_HALF_OPEN_SUCCESSES", 1),
       windowSize: int(env, "BREAKER_WINDOW_SIZE", 100),
+      probeLeaseTtlMs: int(env, "BREAKER_PROBE_LEASE_MS", breakerOpenMs * 2),
     },
     timeoutMs: int(env, "POLICY_TIMEOUT_MS", 2_000),
     retry: {
@@ -179,6 +182,7 @@ export function describeConfig(
     "breaker failure threshold": config.breaker.failureThreshold,
     "breaker open": `${config.breaker.openMs}ms`,
     "breaker half-open probes": config.breaker.halfOpenProbes,
+    "breaker probe lease": `${config.breaker.probeLeaseTtlMs}ms`,
     timeout: `${config.timeoutMs}ms`,
     "retry attempts": config.retry.maxAttempts,
     "redis command timeout": `${config.redis.commandTimeoutMs}ms`,

@@ -1,0 +1,136 @@
+{
+  "schema": 1,
+  "runId": "2026-09-16T20-34-23-443_10-dispose-abandoned-body",
+  "demo": "10-dispose-abandoned-body",
+  "title": "Retry abandons a 5xx body and dispose cancels it",
+  "startedAt": "2026-09-16T20:34:23.443Z",
+  "finishedAt": "2026-09-16T20:34:23.443Z",
+  "library": {
+    "version": "0.6.0",
+    "source": "npm"
+  },
+  "topology": {
+    "policies": "local",
+    "scope": "global",
+    "config": {
+      "topology": "local",
+      "scope": "global",
+      "namespace": "caracal-demo:2026-09-16T20-34-10-670_10-dispose-abandoned-body",
+      "scope label": "on",
+      "onCoordinatorError": "fail-open",
+      "bulkhead limit": 5,
+      "bulkhead lease": "5000ms",
+      "queue": "none (immediate reject)",
+      "breaker minimum throughput": 1000,
+      "breaker failure threshold": 0.5,
+      "breaker open": "5000ms",
+      "breaker half-open probes": 3,
+      "breaker probe lease": "10000ms",
+      "timeout": "5000ms",
+      "retry attempts": 2,
+      "redis command timeout": "1000ms"
+    }
+  },
+  "workload": {
+    "durationMs": 6000,
+    "concurrency": 5,
+    "replicas": 1,
+    "byOperation": {
+      "orders.get": 70
+    }
+  },
+  "client": {
+    "requests": 70,
+    "success": 0,
+    "failure": 70,
+    "refusedByReason": {},
+    "timedOut": 0,
+    "latencyMs": {
+      "p50": 148,
+      "p95": 162,
+      "p99": 166,
+      "max": 166
+    },
+    "rps": 11
+  },
+  "caracal": {
+    "executionsByOutcome": {
+      "success": 70
+    },
+    "attemptsByClassification": {
+      "retryable": 140
+    },
+    "eventsByType": {
+      "execution.started": 70,
+      "bulkhead.admitted": 140,
+      "attempt.started": 140,
+      "attempt.settled": 140,
+      "bulkhead.released": 140,
+      "retry.scheduled": 70,
+      "retry.exhausted": 70,
+      "breaker.observation": 70,
+      "execution.settled": 70
+    },
+    "breakerStateChanges": {},
+    "breakerOpens": 0,
+    "breakerOpensByScope": {},
+    "breakerRejectionsByState": {},
+    "bulkheadRejectionsByReason": {},
+    "bulkheadRejectionsByScope": {},
+    "peakProbesInFlightByScope": {},
+    "leaseLost": 0,
+    "degraded": 0,
+    "staleObservations": 0,
+    "coordinatorErrors": 0,
+    "retriesScheduled": 70,
+    "retriesDeclined": 0,
+    "timeoutsTriggered": 0,
+    "distinctScopes": 1,
+    "maxPermitHoldMs": 59
+  },
+  "checks": [
+    {
+      "name": "witnessPresent",
+      "claim": "the dependency reported its own concurrency",
+      "expected": "present",
+      "actual": "present",
+      "passed": true
+    },
+    {
+      "name": "requestsAtLeast",
+      "claim": "the run issued at least 10 requests",
+      "expected": "10",
+      "actual": "70",
+      "passed": true
+    },
+    {
+      "name": "eventCountAtLeast",
+      "claim": "the stream contained at least 20 `retry.scheduled` event(s)",
+      "expected": "20",
+      "actual": "70",
+      "passed": true
+    },
+    {
+      "name": "witnessAbandonedAtLeast",
+      "claim": "the dependency saw at least 20 response(s) the client abandoned",
+      "expected": "20",
+      "actual": "140",
+      "passed": true
+    }
+  ],
+  "passed": true,
+  "notes": [
+    "Does a retried 5xx leak its response body?",
+    "runId: 2026-09-16T20-34-10-670_10-dispose-abandoned-body"
+  ],
+  "witness": {
+    "samples": 462,
+    "peakInFlight": 4,
+    "peakByScope": {
+      "global": 4
+    },
+    "requests": 140,
+    "failures": 140,
+    "abandoned": 140
+  }
+}

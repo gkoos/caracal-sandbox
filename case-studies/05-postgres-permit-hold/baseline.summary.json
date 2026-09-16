@@ -1,12 +1,12 @@
 {
   "schema": 1,
-  "runId": "2026-09-15T21-19-19-435_05-postgres-permit-hold",
+  "runId": "2026-09-16T20-38-02-655_05-postgres-permit-hold",
   "demo": "05-postgres-permit-hold",
   "title": "A timed-out query still holds its permit",
-  "startedAt": "2026-09-15T21:19:19.435Z",
-  "finishedAt": "2026-09-15T21:19:19.436Z",
+  "startedAt": "2026-09-16T20:38:02.655Z",
+  "finishedAt": "2026-09-16T20:38:02.655Z",
   "library": {
-    "version": "0.5.0",
+    "version": "0.6.0",
     "source": "npm"
   },
   "topology": {
@@ -15,7 +15,7 @@
     "config": {
       "topology": "distributed",
       "scope": "global",
-      "namespace": "caracal-demo:2026-09-15T21-19-06-735_05-postgres-permit-hold",
+      "namespace": "caracal-demo:2026-09-16T20-37-49-412_05-postgres-permit-hold",
       "scope label": "on",
       "onCoordinatorError": "fail-open",
       "bulkhead limit": 1,
@@ -25,6 +25,7 @@
       "breaker failure threshold": 0.5,
       "breaker open": "1000ms",
       "breaker half-open probes": 3,
+      "breaker probe lease": "2000ms",
       "timeout": "500ms",
       "retry attempts": 1,
       "redis command timeout": "1000ms"
@@ -43,14 +44,14 @@
     "success": 0,
     "failure": 0,
     "refusedByReason": {
-      "bulkhead:capacity": 41
+      "bulkhead:capacity": 40
     },
-    "timedOut": 4,
+    "timedOut": 5,
     "latencyMs": {
       "p50": 4,
-      "p95": 516,
-      "p99": 520,
-      "max": 520
+      "p95": 510,
+      "p99": 516,
+      "max": 516
     },
     "rps": 5
   },
@@ -59,29 +60,29 @@
       "failure": 45
     },
     "attemptsByClassification": {
-      "success": 3
+      "success": 4
     },
     "eventsByType": {
       "execution.started": 45,
-      "bulkhead.admitted": 4,
-      "attempt.started": 4,
-      "bulkhead.rejected": 41,
-      "retry.declined": 41,
+      "bulkhead.admitted": 5,
+      "attempt.started": 5,
+      "bulkhead.rejected": 40,
+      "retry.declined": 40,
       "execution.settled": 45,
-      "timeout.triggered": 4,
-      "breaker.observation": 4,
-      "attempt.settled": 3,
-      "bulkhead.released": 3
+      "timeout.triggered": 5,
+      "breaker.observation": 5,
+      "attempt.settled": 4,
+      "bulkhead.released": 4
     },
     "breakerStateChanges": {},
     "breakerOpens": 0,
     "breakerOpensByScope": {},
     "breakerRejectionsByState": {},
     "bulkheadRejectionsByReason": {
-      "capacity": 41
+      "capacity": 40
     },
     "bulkheadRejectionsByScope": {
-      "global": 41
+      "global": 40
     },
     "peakProbesInFlightByScope": {},
     "leaseLost": 0,
@@ -89,10 +90,10 @@
     "staleObservations": 0,
     "coordinatorErrors": 0,
     "retriesScheduled": 0,
-    "retriesDeclined": 41,
-    "timeoutsTriggered": 4,
+    "retriesDeclined": 40,
+    "timeoutsTriggered": 5,
     "distinctScopes": 1,
-    "maxPermitHoldMs": 2029
+    "maxPermitHoldMs": 2030
   },
   "checks": [
     {
@@ -106,48 +107,49 @@
       "name": "eventCountAtLeast",
       "claim": "the stream contained at least 3 `timeout.triggered` event(s)",
       "expected": "3",
-      "actual": "4",
+      "actual": "5",
       "passed": true
     },
     {
       "name": "eventCountAtLeast",
       "claim": "the stream contained at least 5 `bulkhead.rejected` event(s)",
       "expected": "5",
-      "actual": "41",
+      "actual": "40",
       "passed": true
     },
     {
       "name": "permitHoldAtLeast",
       "claim": "a permit was held for at least 1500ms",
       "expected": "1500",
-      "actual": "2029",
+      "actual": "2030",
       "passed": true
     },
     {
       "name": "eventCountAtLeast",
       "claim": "the stream contained at least 1 `bulkhead.admitted` event(s)",
       "expected": "1",
-      "actual": "4",
+      "actual": "5",
       "passed": true
     }
   ],
   "passed": true,
   "notes": [
     "What does abort: unsupported mean for a distributed bulkhead?",
-    "runId: 2026-09-15T21-19-06-735_05-postgres-permit-hold"
+    "runId: 2026-09-16T20-37-49-412_05-postgres-permit-hold"
   ],
   "witness": {
-    "samples": 465,
+    "samples": 575,
     "peakInFlight": 0,
     "peakByScope": {},
     "requests": 0,
-    "failures": 0
+    "failures": 0,
+    "abandoned": 0
   },
   "coordination": {
-    "commands": 97,
-    "evalsha": 52,
+    "commands": 99,
+    "evalsha": 54,
     "eval": 0,
     "errors": 0,
-    "roundTripsPerExecution": 2.16
+    "roundTripsPerExecution": 2.2
   }
 }

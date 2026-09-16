@@ -1,12 +1,12 @@
 {
   "schema": 1,
-  "runId": "2026-09-15T21-18-44-282_03-multi-region",
+  "runId": "2026-09-16T20-37-24-600_03-multi-region",
   "demo": "03-multi-region",
   "title": "A regional failure stays regional",
-  "startedAt": "2026-09-15T21:18:44.282Z",
-  "finishedAt": "2026-09-15T21:18:44.283Z",
+  "startedAt": "2026-09-16T20:37:24.600Z",
+  "finishedAt": "2026-09-16T20:37:24.600Z",
   "library": {
-    "version": "0.5.0",
+    "version": "0.6.0",
     "source": "npm"
   },
   "topology": {
@@ -15,7 +15,7 @@
     "config": {
       "topology": "distributed",
       "scope": "region",
-      "namespace": "caracal-demo:2026-09-15T21-18-21-593_03-multi-region",
+      "namespace": "caracal-demo:2026-09-16T20-37-01-918_03-multi-region",
       "scope label": "on",
       "onCoordinatorError": "fail-open",
       "bulkhead limit": 10,
@@ -25,6 +25,7 @@
       "breaker failure threshold": 0.5,
       "breaker open": "3000ms",
       "breaker half-open probes": 3,
+      "breaker probe lease": "6000ms",
       "timeout": "2000ms",
       "retry attempts": 2,
       "redis command timeout": "1000ms"
@@ -35,52 +36,52 @@
     "concurrency": 12,
     "replicas": 4,
     "byOperation": {
-      "us": 1491,
-      "eu": 2158
+      "us": 1479,
+      "eu": 2137
     }
   },
   "client": {
-    "requests": 3649,
-    "success": 2779,
-    "failure": 59,
+    "requests": 3616,
+    "success": 2765,
+    "failure": 63,
     "refusedByReason": {
-      "bulkhead:capacity": 10,
-      "breaker-open": 801
+      "breaker-open": 780,
+      "bulkhead:capacity": 8
     },
     "timedOut": 0,
     "latencyMs": {
-      "p50": 45,
-      "p95": 57,
-      "p99": 143,
-      "max": 162
+      "p50": 47,
+      "p95": 58,
+      "p99": 148,
+      "max": 169
     },
-    "rps": 202
+    "rps": 200
   },
   "caracal": {
     "executionsByOutcome": {
-      "success": 2838,
-      "failure": 811
+      "success": 2828,
+      "failure": 788
     },
     "attemptsByClassification": {
-      "success": 2779,
-      "retryable": 120
+      "success": 2765,
+      "retryable": 126
     },
     "eventsByType": {
-      "execution.started": 3649,
-      "bulkhead.admitted": 2899,
-      "attempt.started": 2899,
-      "attempt.settled": 2899,
-      "bulkhead.released": 2899,
-      "breaker.observation": 2828,
-      "execution.settled": 3649,
-      "retry.scheduled": 61,
-      "retry.exhausted": 59,
-      "breaker.rejected": 801,
-      "breaker.observation-stale": 10,
-      "bulkhead.rejected": 10,
-      "retry.declined": 10,
-      "breaker.state-changed": 5,
-      "breaker.probe-started": 6
+      "execution.started": 3616,
+      "bulkhead.admitted": 2891,
+      "attempt.started": 2891,
+      "attempt.settled": 2891,
+      "bulkhead.released": 2891,
+      "breaker.observation": 2814,
+      "execution.settled": 3616,
+      "retry.scheduled": 63,
+      "retry.exhausted": 63,
+      "breaker.rejected": 780,
+      "breaker.observation-stale": 14,
+      "bulkhead.rejected": 8,
+      "retry.declined": 8,
+      "breaker.probe-started": 6,
+      "breaker.state-changed": 5
     },
     "breakerStateChanges": {
       "half-open": 2,
@@ -92,28 +93,28 @@
       "region:eu": 2
     },
     "breakerRejectionsByState": {
-      "open": 775,
-      "half-open": 26
+      "open": 756,
+      "half-open": 24
     },
     "bulkheadRejectionsByReason": {
-      "capacity": 10
+      "capacity": 8
     },
     "bulkheadRejectionsByScope": {
-      "region:us": 9,
+      "region:us": 7,
       "region:eu": 1
     },
     "peakProbesInFlightByScope": {
-      "region:eu": 3
+      "region:eu": 4
     },
     "leaseLost": 0,
     "degraded": 0,
-    "staleObservations": 10,
+    "staleObservations": 14,
     "coordinatorErrors": 0,
-    "retriesScheduled": 61,
-    "retriesDeclined": 10,
+    "retriesScheduled": 63,
+    "retriesDeclined": 8,
     "timeoutsTriggered": 0,
     "distinctScopes": 2,
-    "maxPermitHoldMs": 72
+    "maxPermitHoldMs": 68
   },
   "checks": [
     {
@@ -127,14 +128,14 @@
       "name": "witnessSamplesAtLeast",
       "claim": "the dependency took at least 200 samples",
       "expected": "200",
-      "actual": "1312",
+      "actual": "1235",
       "passed": true
     },
     {
       "name": "requestsAtLeast",
       "claim": "the run issued at least 500 requests",
       "expected": "500",
-      "actual": "3649",
+      "actual": "3616",
       "passed": true
     },
     {
@@ -155,14 +156,14 @@
       "name": "eventCountAtLeast",
       "claim": "the stream contained at least 20 `breaker.rejected` event(s)",
       "expected": "20",
-      "actual": "801",
+      "actual": "780",
       "passed": true
     },
     {
       "name": "successRateAtLeast",
       "claim": "at least 70% of calls succeeded",
       "expected": ">= 70%",
-      "actual": "76.2%",
+      "actual": "76.5%",
       "passed": true
     },
     {
@@ -176,37 +177,38 @@
       "name": "coordinatorRoundTripsAtMost",
       "claim": "at most 8 coordinator round trip(s) per execution",
       "expected": "8",
-      "actual": "3.59",
+      "actual": "3.6",
       "passed": true
     },
     {
       "name": "evalshaRatioAtLeast",
       "claim": "at least 80% of script calls were EVALSHA",
       "expected": ">= 80%",
-      "actual": "100.0%",
+      "actual": "99.9%",
       "passed": true
     }
   ],
   "passed": true,
   "notes": [
     "Does a failure in one region stay in that region?",
-    "runId: 2026-09-15T21-18-21-593_03-multi-region"
+    "runId: 2026-09-16T20-37-01-918_03-multi-region"
   ],
   "witness": {
-    "samples": 1312,
+    "samples": 1235,
     "peakInFlight": 12,
     "peakByScope": {
-      "region:us": 10,
-      "region:eu": 10
+      "region:eu": 10,
+      "region:us": 10
     },
-    "requests": 2899,
-    "failures": 120
+    "requests": 2891,
+    "failures": 126,
+    "abandoned": 0
   },
   "coordination": {
-    "commands": 13102,
-    "evalsha": 9453,
-    "eval": 0,
-    "errors": 0,
-    "roundTripsPerExecution": 3.59
+    "commands": 13027,
+    "evalsha": 9405,
+    "eval": 6,
+    "errors": 6,
+    "roundTripsPerExecution": 3.6
   }
 }

@@ -1,12 +1,12 @@
 {
   "schema": 1,
-  "runId": "2026-09-15T21-20-25-991_07-chaos",
+  "runId": "2026-09-16T20-38-52-510_07-chaos",
   "demo": "07-chaos",
   "title": "The invariants hold while things die",
-  "startedAt": "2026-09-15T21:20:25.991Z",
-  "finishedAt": "2026-09-15T21:20:25.992Z",
+  "startedAt": "2026-09-16T20:38:52.510Z",
+  "finishedAt": "2026-09-16T20:38:52.510Z",
   "library": {
-    "version": "0.5.0",
+    "version": "0.6.0",
     "source": "npm"
   },
   "topology": {
@@ -15,7 +15,7 @@
     "config": {
       "topology": "distributed",
       "scope": "global",
-      "namespace": "caracal-demo:2026-09-15T21-20-07-856_07-chaos",
+      "namespace": "caracal-demo:2026-09-16T20-38-34-420_07-chaos",
       "scope label": "on",
       "onCoordinatorError": "fail-open",
       "bulkhead limit": 3,
@@ -25,6 +25,7 @@
       "breaker failure threshold": 0.5,
       "breaker open": "1000ms",
       "breaker half-open probes": 3,
+      "breaker probe lease": "2000ms",
       "timeout": "3000ms",
       "retry attempts": 1,
       "redis command timeout": "1000ms"
@@ -35,82 +36,82 @@
     "concurrency": 12,
     "replicas": 4,
     "byOperation": {
-      "orders.get": 588
+      "orders.get": 624
     }
   },
   "client": {
-    "requests": 588,
-    "success": 126,
-    "failure": 109,
+    "requests": 624,
+    "success": 124,
+    "failure": 119,
     "refusedByReason": {
-      "bulkhead:capacity": 351,
-      "bulkhead:lease-lost": 2
+      "bulkhead:capacity": 380,
+      "bulkhead:lease-lost": 1
     },
     "timedOut": 0,
     "latencyMs": {
-      "p50": 3,
-      "p95": 301,
-      "p99": 1168,
-      "max": 1747
+      "p50": 4,
+      "p95": 295,
+      "p99": 964,
+      "max": 1718
     },
-    "rps": 47
+    "rps": 50
   },
   "caracal": {
     "executionsByOutcome": {
-      "failure": 352,
-      "success": 126
+      "failure": 380,
+      "success": 124
     },
     "attemptsByClassification": {
-      "success": 126,
-      "ignored": 2
+      "success": 124,
+      "ignored": 1
     },
     "eventsByType": {
-      "execution.started": 479,
-      "bulkhead.admitted": 128,
-      "attempt.started": 128,
-      "bulkhead.rejected": 350,
-      "retry.declined": 352,
-      "execution.settled": 478,
-      "attempt.settled": 128,
-      "bulkhead.released": 128,
-      "breaker.observation": 126,
-      "bulkhead.lease-lost": 2,
-      "bulkhead.degraded": 2
+      "execution.started": 505,
+      "bulkhead.admitted": 126,
+      "attempt.started": 126,
+      "bulkhead.rejected": 379,
+      "retry.declined": 380,
+      "execution.settled": 504,
+      "attempt.settled": 125,
+      "bulkhead.released": 125,
+      "breaker.observation": 124,
+      "bulkhead.lease-lost": 1,
+      "bulkhead.degraded": 1
     },
     "breakerStateChanges": {},
     "breakerOpens": 0,
     "breakerOpensByScope": {},
     "breakerRejectionsByState": {},
     "bulkheadRejectionsByReason": {
-      "capacity": 350
+      "capacity": 379
     },
     "bulkheadRejectionsByScope": {
-      "global": 350
+      "global": 379
     },
     "peakProbesInFlightByScope": {},
-    "leaseLost": 2,
-    "degraded": 2,
+    "leaseLost": 1,
+    "degraded": 1,
     "staleObservations": 0,
     "coordinatorErrors": 0,
     "retriesScheduled": 0,
-    "retriesDeclined": 352,
+    "retriesDeclined": 380,
     "timeoutsTriggered": 0,
     "distinctScopes": 1,
-    "maxPermitHoldMs": 1652
+    "maxPermitHoldMs": 1712
   },
   "checks": [
     {
       "name": "requestsAtLeast",
       "claim": "the run issued at least 200 requests",
       "expected": "200",
-      "actual": "588",
+      "actual": "624",
       "passed": true
     },
     {
       "name": "chaosSamplesAtLeast",
       "claim": "the sampler took at least 50 lease sample(s)",
       "expected": "50",
-      "actual": "217",
+      "actual": "207",
       "passed": true
     },
     {
@@ -131,33 +132,34 @@
       "name": "eventCountAtLeast",
       "claim": "the stream contained at least 1 `bulkhead.lease-lost` event(s)",
       "expected": "1",
-      "actual": "2",
+      "actual": "1",
       "passed": true
     }
   ],
   "passed": true,
   "notes": [
     "Does the shared budget survive a killed worker and a frozen worker?",
-    "runId: 2026-09-15T21-20-07-856_07-chaos"
+    "runId: 2026-09-16T20-38-34-420_07-chaos"
   ],
   "witness": {
-    "samples": 833,
+    "samples": 820,
     "peakInFlight": 3,
     "peakByScope": {
       "global": 3
     },
-    "requests": 129,
-    "failures": 0
+    "requests": 127,
+    "failures": 0,
+    "abandoned": 0
   },
   "coordination": {
-    "commands": 1228,
-    "evalsha": 787,
+    "commands": 1280,
+    "evalsha": 812,
     "eval": 0,
     "errors": 0,
-    "roundTripsPerExecution": 2.57
+    "roundTripsPerExecution": 2.54
   },
   "chaos": {
-    "samples": 217,
+    "samples": 207,
     "maxLiveLeases": 3,
     "finalLiveLeases": 0,
     "actions": [

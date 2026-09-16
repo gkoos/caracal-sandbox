@@ -1,0 +1,143 @@
+{
+  "schema": 1,
+  "runId": "2026-09-16T20-34-05-473_09-local-bulkhead-lease",
+  "demo": "09-local-bulkhead-lease",
+  "title": "A hung local holder is aborted after its lease",
+  "startedAt": "2026-09-16T20:34:05.473Z",
+  "finishedAt": "2026-09-16T20:34:05.473Z",
+  "library": {
+    "version": "0.6.0",
+    "source": "npm"
+  },
+  "topology": {
+    "policies": "local",
+    "scope": "global",
+    "config": {
+      "topology": "local",
+      "scope": "global",
+      "namespace": "caracal-demo:2026-09-16T20-33-51-725_09-local-bulkhead-lease",
+      "scope label": "on",
+      "onCoordinatorError": "fail-open",
+      "bulkhead limit": 1,
+      "bulkhead lease": "1000ms",
+      "queue": "none (immediate reject)",
+      "breaker minimum throughput": 100,
+      "breaker failure threshold": 0.5,
+      "breaker open": "5000ms",
+      "breaker half-open probes": 3,
+      "breaker probe lease": "10000ms",
+      "timeout": "10000ms",
+      "retry attempts": 1,
+      "redis command timeout": "1000ms"
+    }
+  },
+  "workload": {
+    "durationMs": 6000,
+    "concurrency": 2,
+    "replicas": 1,
+    "byOperation": {
+      "orders.get": 12
+    }
+  },
+  "client": {
+    "requests": 12,
+    "success": 0,
+    "failure": 0,
+    "refusedByReason": {
+      "bulkhead:capacity": 7,
+      "bulkhead:lease-lost": 5
+    },
+    "timedOut": 0,
+    "latencyMs": {
+      "p50": 4,
+      "p95": 1016,
+      "p99": 1016,
+      "max": 1016
+    },
+    "rps": 2
+  },
+  "caracal": {
+    "executionsByOutcome": {
+      "failure": 12
+    },
+    "attemptsByClassification": {
+      "ignored": 5
+    },
+    "eventsByType": {
+      "execution.started": 12,
+      "bulkhead.admitted": 5,
+      "attempt.started": 5,
+      "bulkhead.rejected": 7,
+      "retry.declined": 12,
+      "execution.settled": 12,
+      "bulkhead.lease-lost": 5,
+      "attempt.settled": 5,
+      "bulkhead.released": 5
+    },
+    "breakerStateChanges": {},
+    "breakerOpens": 0,
+    "breakerOpensByScope": {},
+    "breakerRejectionsByState": {},
+    "bulkheadRejectionsByReason": {
+      "capacity": 7
+    },
+    "bulkheadRejectionsByScope": {
+      "process": 7
+    },
+    "peakProbesInFlightByScope": {},
+    "leaseLost": 5,
+    "degraded": 0,
+    "staleObservations": 0,
+    "coordinatorErrors": 0,
+    "retriesScheduled": 0,
+    "retriesDeclined": 12,
+    "timeoutsTriggered": 0,
+    "distinctScopes": 1,
+    "maxPermitHoldMs": 1012
+  },
+  "checks": [
+    {
+      "name": "witnessPresent",
+      "claim": "the dependency reported its own concurrency",
+      "expected": "present",
+      "actual": "present",
+      "passed": true
+    },
+    {
+      "name": "requestsAtLeast",
+      "claim": "the run issued at least 5 requests",
+      "expected": "5",
+      "actual": "12",
+      "passed": true
+    },
+    {
+      "name": "eventCountAtLeast",
+      "claim": "the stream contained at least 3 `bulkhead.lease-lost` event(s)",
+      "expected": "3",
+      "actual": "5",
+      "passed": true
+    },
+    {
+      "name": "eventCountAtLeast",
+      "claim": "the stream contained at least 3 `bulkhead.released` event(s)",
+      "expected": "3",
+      "actual": "5",
+      "passed": true
+    }
+  ],
+  "passed": true,
+  "notes": [
+    "What does a local bulkhead lease reclaim when the holder hangs?",
+    "runId: 2026-09-16T20-33-51-725_09-local-bulkhead-lease"
+  ],
+  "witness": {
+    "samples": 477,
+    "peakInFlight": 1,
+    "peakByScope": {
+      "global": 1
+    },
+    "requests": 5,
+    "failures": 0,
+    "abandoned": 0
+  }
+}
