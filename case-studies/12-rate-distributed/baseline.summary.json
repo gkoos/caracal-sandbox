@@ -1,0 +1,195 @@
+{
+  "schema": 1,
+  "runId": "2026-09-18T03-11-35-475_12-rate-distributed",
+  "demo": "12-rate-distributed",
+  "title": "One shared rate budget",
+  "startedAt": "2026-09-18T03:11:35.475Z",
+  "finishedAt": "2026-09-18T03:11:35.475Z",
+  "library": {
+    "version": "0.7.0",
+    "source": "npm"
+  },
+  "topology": {
+    "policies": "distributed",
+    "scope": "global",
+    "config": {
+      "topology": "distributed",
+      "scope": "global",
+      "namespace": "caracal-demo:2026-09-18T03-11-13-726_12-rate-distributed",
+      "scope label": "on",
+      "onCoordinatorError": "fail-open",
+      "bulkhead limit": 20,
+      "bulkhead lease": "5000ms",
+      "queue": "none (immediate reject)",
+      "rate limit": "100/s, burst 10",
+      "breaker minimum throughput": 20,
+      "breaker failure threshold": 0.5,
+      "breaker open": "5000ms",
+      "breaker half-open probes": 3,
+      "breaker probe lease": "10000ms",
+      "timeout": "2000ms",
+      "retry attempts": 1,
+      "redis command timeout": "1000ms"
+    }
+  },
+  "workload": {
+    "durationMs": 15000,
+    "concurrency": 20,
+    "replicas": 4,
+    "byOperation": {
+      "orders.get": 6398
+    }
+  },
+  "client": {
+    "requests": 6398,
+    "success": 1504,
+    "failure": 6,
+    "refusedByReason": {
+      "rate-limited": 4888
+    },
+    "timedOut": 0,
+    "latencyMs": {
+      "p50": 5,
+      "p95": 52,
+      "p99": 59,
+      "max": 102
+    },
+    "rps": 424
+  },
+  "caracal": {
+    "executionsByOutcome": {
+      "success": 1510,
+      "failure": 4888
+    },
+    "attemptsByClassification": {
+      "retryable": 6,
+      "success": 1504
+    },
+    "eventsByType": {
+      "execution.started": 6398,
+      "bulkhead.admitted": 6398,
+      "ratelimit.admitted": 1510,
+      "attempt.started": 1510,
+      "attempt.settled": 1510,
+      "bulkhead.released": 6398,
+      "retry.exhausted": 6,
+      "breaker.observation": 1510,
+      "execution.settled": 6398,
+      "ratelimit.rejected": 4888,
+      "retry.declined": 4888
+    },
+    "breakerStateChanges": {},
+    "breakerOpens": 0,
+    "breakerOpensByScope": {},
+    "breakerRejectionsByState": {},
+    "bulkheadRejectionsByReason": {},
+    "bulkheadRejectionsByScope": {},
+    "rateLimitAdmitted": 1510,
+    "rateLimitRejectionsByReason": {
+      "rate-exceeded": 4888
+    },
+    "rateLimitRejectionsByScope": {
+      "global": 4888
+    },
+    "rateLimitRetryAfterMaxMs": 10,
+    "peakProbesInFlightByScope": {},
+    "leaseLost": 0,
+    "degraded": 0,
+    "staleObservations": 0,
+    "coordinatorErrors": 0,
+    "retriesScheduled": 0,
+    "retriesDeclined": 4888,
+    "timeoutsTriggered": 0,
+    "distinctScopes": 1,
+    "maxPermitHoldMs": 74
+  },
+  "checks": [
+    {
+      "name": "witnessPresent",
+      "claim": "the dependency reported its own concurrency",
+      "expected": "present",
+      "actual": "present",
+      "passed": true
+    },
+    {
+      "name": "witnessSamplesAtLeast",
+      "claim": "the dependency took at least 200 samples",
+      "expected": "200",
+      "actual": "1121",
+      "passed": true
+    },
+    {
+      "name": "requestsAtLeast",
+      "claim": "the run issued at least 500 requests",
+      "expected": "500",
+      "actual": "6398",
+      "passed": true
+    },
+    {
+      "name": "dependencyRateAtMost",
+      "claim": "the dependency sustained at most 110 request(s)/s",
+      "expected": "<= 110/s",
+      "actual": "101/s",
+      "passed": true
+    },
+    {
+      "name": "dependencyRateAtLeast",
+      "claim": "the dependency sustained at least 80 request(s)/s",
+      "expected": ">= 80/s",
+      "actual": "101/s",
+      "passed": true
+    },
+    {
+      "name": "rateLimitRejectionsAtLeast",
+      "claim": "the rate limiter rejected at least 500 call(s) with reason `rate-exceeded`",
+      "expected": "500",
+      "actual": "4888",
+      "passed": true
+    },
+    {
+      "name": "rateLimitAdmittedAtLeast",
+      "claim": "the rate limiter admitted at least 1000 call(s)",
+      "expected": "1000",
+      "actual": "1510",
+      "passed": true
+    },
+    {
+      "name": "breakerOpensEquals",
+      "claim": "the failure opened the breaker exactly 0 time(s)",
+      "expected": "0",
+      "actual": "0",
+      "passed": true
+    },
+    {
+      "name": "coordinatorRoundTripsAtMost",
+      "claim": "at most 6 coordinator round trip(s) per execution",
+      "expected": "6",
+      "actual": "4.24",
+      "passed": true
+    }
+  ],
+  "passed": true,
+  "notes": [
+    "What changes when the *rate* budget belongs to the downstream, not the process?",
+    "runId: 2026-09-18T03-11-13-726_12-rate-distributed"
+  ],
+  "witness": {
+    "samples": 1121,
+    "peakInFlight": 8,
+    "peakRps": 111,
+    "peakByScope": {
+      "global": 8
+    },
+    "requests": 1510,
+    "failures": 6,
+    "abandoned": 0,
+    "capacity": 8
+  },
+  "coordination": {
+    "commands": 27102,
+    "evalsha": 20704,
+    "eval": 0,
+    "errors": 0,
+    "roundTripsPerExecution": 4.24
+  }
+}

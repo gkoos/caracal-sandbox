@@ -1,0 +1,46 @@
+# The fourteenth study: burst and the retry-after hint.
+#
+# A GCRA rate limit has two knobs: the sustained rate and the burst. The burst
+# lets a cluster through before the strict rate applies; the retry-after hint on
+# each rate-exceeded rejection says when the next call would be admissible, so a
+# caller can pace a retry instead of guessing.
+#
+#   npm run demo 14
+id: "14-rate-burst-retry-after"
+title: "Burst, then the sustained rate - with a retry-after hint"
+question: "What does `burst` buy, and what does a rate-exceeded rejection tell you?"
+
+topology:
+  policies: local
+  scope: global
+  replicas: 1
+  env:
+    RATE_LIMIT_RATE: "50"       # 20ms emission interval
+    RATE_LIMIT_BURST: "20"      # allow a burst of 20 before enforcing 50/s
+    BULKHEAD_LIMIT: "100"       # effectively off
+    POLICY_TIMEOUT_MS: "5000"
+    RETRY_MAX_ATTEMPTS: "1"
+
+scenario:
+  durationMs: 8000
+  concurrency: 20
+  targetRps: 200               # offer far more than 50/s
+  seed: 1
+  operations:
+    - { name: "orders.get", method: GET, path: "/orders/{id}", weight: 1 }
+  dependency:
+    latencyMs: 10
+    failureRate: 0
+    capacity: 0
+
+checks:
+  - { name: witnessPresent }
+  - { name: requestsAtLeast, params: { value: 200 } }
+  # The sustained rate is enforced after the burst.
+  - { name: dependencyRateAtMost, params: { value: 60 } }
+  - { name: dependencyRateAtLeast, params: { value: 40 } }
+  # A burst was admitted up front, then the surplus was shed.
+  - { name: rateLimitAdmittedAtLeast, params: { value: 200 } }
+  - { name: rateLimitRejectionsAtLeast, params: { reason: rate-exceeded, value: 100 } }
+  # Every rejection carried a retry-after hint.
+  - { name: rateLimitRetryAfterAtLeast, params: { value: 1 } }

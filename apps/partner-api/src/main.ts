@@ -18,6 +18,7 @@ import { createRequire } from "node:module"
 import {
   BulkheadRejectedError,
   CircuitOpenError,
+  RateLimitExceededError,
   TimeoutError,
 } from "@gkoos/caracal"
 import { CoordinatorUnavailableError } from "@gkoos/caracal/redis"
@@ -96,6 +97,8 @@ function httpStatus(error: unknown): {
   if (error instanceof BulkheadRejectedError) {
     return { status: 429, kind: "bulkhead-rejected", reason: error.reason }
   }
+  if (error instanceof RateLimitExceededError)
+    return { status: 429, kind: "rate-limited" }
   if (error instanceof CircuitOpenError)
     return { status: 503, kind: "breaker-open" }
   if (error instanceof TimeoutError) return { status: 504, kind: "timeout" }

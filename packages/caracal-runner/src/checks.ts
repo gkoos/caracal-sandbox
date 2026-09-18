@@ -445,6 +445,100 @@ export const CHECKS: Record<string, CheckDefinition> = {
         (a, e) => a >= e,
       ),
   },
+  dependencyRateAtMost: {
+    name: "dependencyRateAtMost",
+    claim: (params) =>
+      `the dependency sustained at most ${number(params, "value")} request(s)/s`,
+    description:
+      "The rate-axis headline: a shared rate budget is a ceiling on the dependency's arrival rate, read from the dependency's own request count.",
+    evaluate: (summary, params) => {
+      const seconds = Math.max(1, summary.workload.durationMs) / 1000
+      const rate = (summary.witness?.requests ?? 0) / seconds
+      return {
+        expected: `<= ${number(params, "value")}/s`,
+        actual: `${Math.round(rate)}/s`,
+        passed: rate <= number(params, "value"),
+      }
+    },
+  },
+  dependencyRateAtLeast: {
+    name: "dependencyRateAtLeast",
+    claim: (params) =>
+      `the dependency sustained at least ${number(params, "value")} request(s)/s`,
+    description:
+      "The complement: a bulkhead caps concurrency, not rate, so a fast dependency can see far more arrivals than the concurrency limit implies.",
+    evaluate: (summary, params) => {
+      const seconds = Math.max(1, summary.workload.durationMs) / 1000
+      const rate = (summary.witness?.requests ?? 0) / seconds
+      return {
+        expected: `>= ${number(params, "value")}/s`,
+        actual: `${Math.round(rate)}/s`,
+        passed: rate >= number(params, "value"),
+      }
+    },
+  },
+  dependencyPeakRateAtMost: {
+    name: "dependencyPeakRateAtMost",
+    claim: (params) =>
+      `the dependency's peak 1s arrival rate stayed at most ${number(params, "value")} request(s)/s`,
+    description:
+      "The burst knob: peak rate can exceed the sustained rate only by the configured burst.",
+    evaluate: (summary, params) =>
+      compare(
+        summary.witness?.peakRps,
+        number(params, "value"),
+        (a, e) => a <= e,
+      ),
+  },
+  rateLimitAdmittedAtLeast: {
+    name: "rateLimitAdmittedAtLeast",
+    claim: (params) =>
+      `the rate limiter admitted at least ${number(params, "value")} call(s)`,
+    evaluate: (summary, params) =>
+      compare(
+        summary.caracal.rateLimitAdmitted,
+        number(params, "value"),
+        (a, e) => a >= e,
+      ),
+  },
+  rateLimitRejectionsAtLeast: {
+    name: "rateLimitRejectionsAtLeast",
+    claim: (params) =>
+      `the rate limiter rejected at least ${number(params, "value")} call(s) with reason \`${text(params, "reason")}\``,
+    evaluate: (summary, params) =>
+      compare(
+        summary.caracal.rateLimitRejectionsByReason[text(params, "reason")] ??
+          0,
+        number(params, "value"),
+        (a, e) => a >= e,
+      ),
+  },
+  rateLimitRejectionsInScopeAtLeast: {
+    name: "rateLimitRejectionsInScopeAtLeast",
+    claim: (params) =>
+      `scope \`${text(params, "scope")}\` was rate-limited at least ${number(params, "value")} time(s)`,
+    description:
+      "Fairness: the noisy scope is the one whose rate was exceeded, not the quiet ones.",
+    evaluate: (summary, params) =>
+      compare(
+        summary.caracal.rateLimitRejectionsByScope[text(params, "scope")] ?? 0,
+        number(params, "value"),
+        (a, e) => a >= e,
+      ),
+  },
+  rateLimitRetryAfterAtLeast: {
+    name: "rateLimitRetryAfterAtLeast",
+    claim: (params) =>
+      `a rate-exceeded rejection carried a retry-after of at least ${number(params, "value")}ms`,
+    description:
+      "The retry-after hint: a rejection reports when the next call would be admissible.",
+    evaluate: (summary, params) =>
+      compare(
+        summary.caracal.rateLimitRetryAfterMaxMs,
+        number(params, "value"),
+        (a, e) => a >= e,
+      ),
+  },
   witnessFailuresAtLeast: {
     name: "witnessFailuresAtLeast",
     claim: (params) =>

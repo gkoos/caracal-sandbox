@@ -1,0 +1,47 @@
+# The thirteenth study: rate is not a concurrency ceiling.
+#
+# A bulkhead limits how many calls are in flight; a rate limit limits how fast
+# calls start. They are different axes: with slow work, a rate limit admits a
+# steady trickle that *piles up* in flight. 100 req/s against a 200ms dependency
+# is ~20 concurrent calls - the rate limit did nothing to cap concurrency.
+#
+#   npm run demo 13
+id: "13-rate-vs-concurrency"
+title: "Rate is not a concurrency ceiling"
+question: "A rate limit caps arrival rate - what does it fail to protect when work is slow?"
+
+topology:
+  policies: distributed
+  scope: global
+  replicas: 1
+  env:
+    REDIS_URL: "redis://127.0.0.1:6379"
+    BULKHEAD_LIMIT: "100"       # effectively off: the rate limit is the binding policy
+    BULKHEAD_LEASE_MS: "5000"
+    RATE_LIMIT_RATE: "100"      # 100 req/s
+    RATE_LIMIT_BURST: "5"
+    POLICY_TIMEOUT_MS: "5000"   # long enough that nothing times out
+    RETRY_MAX_ATTEMPTS: "1"
+
+scenario:
+  durationMs: 15000
+  concurrency: 100             # enough workers to offer 400/s despite the 200ms latency
+  targetRps: 400               # offer far more than the rate allows
+  seed: 1
+  operations:
+    - { name: "orders.get", method: GET, path: "/orders/{id}", weight: 1 }
+  dependency:
+    latencyMs: 200             # slow work: 100/s * 0.2s = ~20 in flight
+    failureRate: 0
+    capacity: 0
+
+checks:
+  - { name: witnessPresent }
+  - { name: witnessSamplesAtLeast, params: { value: 200 } }
+  # The rate limit did its job: the dependency sustained ~100 req/s.
+  - { name: dependencyRateAtMost, params: { value: 110 } }
+  - { name: dependencyRateAtLeast, params: { value: 80 } }
+  # ...but it did NOT cap concurrency: slow work piled up in flight.
+  - { name: peakInFlightAtLeast, params: { value: 15 } }
+  # The surplus was shed as rate-exceeded.
+  - { name: rateLimitRejectionsAtLeast, params: { reason: rate-exceeded, value: 500 } }

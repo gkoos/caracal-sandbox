@@ -1,0 +1,171 @@
+{
+  "schema": 1,
+  "runId": "2026-09-18T03-10-56-767_14-rate-burst-retry-after",
+  "demo": "14-rate-burst-retry-after",
+  "title": "Burst, then the sustained rate - with a retry-after hint",
+  "startedAt": "2026-09-18T03:10:56.767Z",
+  "finishedAt": "2026-09-18T03:10:56.767Z",
+  "library": {
+    "version": "0.7.0",
+    "source": "npm"
+  },
+  "topology": {
+    "policies": "local",
+    "scope": "global",
+    "config": {
+      "topology": "local",
+      "scope": "global",
+      "namespace": "caracal-demo:2026-09-18T03-10-33-916_14-rate-burst-retry-after",
+      "scope label": "on",
+      "onCoordinatorError": "fail-open",
+      "bulkhead limit": 100,
+      "bulkhead lease": "5000ms",
+      "queue": "none (immediate reject)",
+      "rate limit": "50/s, burst 20",
+      "breaker minimum throughput": 20,
+      "breaker failure threshold": 0.5,
+      "breaker open": "5000ms",
+      "breaker half-open probes": 3,
+      "breaker probe lease": "10000ms",
+      "timeout": "5000ms",
+      "retry attempts": 1,
+      "redis command timeout": "1000ms"
+    }
+  },
+  "workload": {
+    "durationMs": 8000,
+    "concurrency": 20,
+    "replicas": 1,
+    "byOperation": {
+      "orders.get": 1869
+    }
+  },
+  "client": {
+    "requests": 1869,
+    "success": 423,
+    "failure": 0,
+    "refusedByReason": {
+      "rate-limited": 1446
+    },
+    "timedOut": 0,
+    "latencyMs": {
+      "p50": 2,
+      "p95": 17,
+      "p99": 25,
+      "max": 49
+    },
+    "rps": 231
+  },
+  "caracal": {
+    "executionsByOutcome": {
+      "success": 423,
+      "failure": 1446
+    },
+    "attemptsByClassification": {
+      "success": 423
+    },
+    "eventsByType": {
+      "execution.started": 1869,
+      "bulkhead.admitted": 1869,
+      "ratelimit.admitted": 423,
+      "attempt.started": 423,
+      "attempt.settled": 423,
+      "bulkhead.released": 1869,
+      "breaker.observation": 423,
+      "execution.settled": 1869,
+      "ratelimit.rejected": 1446,
+      "retry.declined": 1446
+    },
+    "breakerStateChanges": {},
+    "breakerOpens": 0,
+    "breakerOpensByScope": {},
+    "breakerRejectionsByState": {},
+    "bulkheadRejectionsByReason": {},
+    "bulkheadRejectionsByScope": {},
+    "rateLimitAdmitted": 423,
+    "rateLimitRejectionsByReason": {
+      "rate-exceeded": 1446
+    },
+    "rateLimitRejectionsByScope": {
+      "process": 1446
+    },
+    "rateLimitRetryAfterMaxMs": 20,
+    "peakProbesInFlightByScope": {},
+    "leaseLost": 0,
+    "degraded": 0,
+    "staleObservations": 0,
+    "coordinatorErrors": 0,
+    "retriesScheduled": 0,
+    "retriesDeclined": 1446,
+    "timeoutsTriggered": 0,
+    "distinctScopes": 1,
+    "maxPermitHoldMs": 31
+  },
+  "checks": [
+    {
+      "name": "witnessPresent",
+      "claim": "the dependency reported its own concurrency",
+      "expected": "present",
+      "actual": "present",
+      "passed": true
+    },
+    {
+      "name": "requestsAtLeast",
+      "claim": "the run issued at least 200 requests",
+      "expected": "200",
+      "actual": "1869",
+      "passed": true
+    },
+    {
+      "name": "dependencyRateAtMost",
+      "claim": "the dependency sustained at most 60 request(s)/s",
+      "expected": "<= 60/s",
+      "actual": "53/s",
+      "passed": true
+    },
+    {
+      "name": "dependencyRateAtLeast",
+      "claim": "the dependency sustained at least 40 request(s)/s",
+      "expected": ">= 40/s",
+      "actual": "53/s",
+      "passed": true
+    },
+    {
+      "name": "rateLimitAdmittedAtLeast",
+      "claim": "the rate limiter admitted at least 200 call(s)",
+      "expected": "200",
+      "actual": "423",
+      "passed": true
+    },
+    {
+      "name": "rateLimitRejectionsAtLeast",
+      "claim": "the rate limiter rejected at least 100 call(s) with reason `rate-exceeded`",
+      "expected": "100",
+      "actual": "1446",
+      "passed": true
+    },
+    {
+      "name": "rateLimitRetryAfterAtLeast",
+      "claim": "a rate-exceeded rejection carried a retry-after of at least 1ms",
+      "expected": "1",
+      "actual": "20",
+      "passed": true
+    }
+  ],
+  "passed": true,
+  "notes": [
+    "What does `burst` buy, and what does a rate-exceeded rejection tell you?",
+    "runId: 2026-09-18T03-10-33-916_14-rate-burst-retry-after"
+  ],
+  "witness": {
+    "samples": 523,
+    "peakInFlight": 5,
+    "peakRps": 70,
+    "peakByScope": {
+      "global": 5
+    },
+    "requests": 423,
+    "failures": 0,
+    "abandoned": 0
+  }
+}

@@ -20,6 +20,8 @@ export class EventSummarizer {
   readonly #breakerRejectionsByState: Record<string, number> = {}
   readonly #bulkheadRejectionsByReason: Record<string, number> = {}
   readonly #bulkheadRejectionsByScope: Record<string, number> = {}
+  readonly #rateLimitRejectionsByReason: Record<string, number> = {}
+  readonly #rateLimitRejectionsByScope: Record<string, number> = {}
   readonly #peakProbesInFlightByScope: Record<string, number> = {}
   readonly #probesInFlight = new Map<string, number>()
   readonly #breakerState = new Map<string, string>()
@@ -35,6 +37,8 @@ export class EventSummarizer {
   #retriesScheduled = 0
   #retriesDeclined = 0
   #timeoutsTriggered = 0
+  #rateLimitAdmitted = 0
+  #rateLimitRetryAfterMaxMs = 0
   #permitsLeaked: number | undefined
 
   #count(target: Record<string, number>, key: string): void {
@@ -90,6 +94,21 @@ export class EventSummarizer {
     }
     if (event.type === "bulkhead.degraded") {
       this.#degraded += 1
+      return
+    }
+    if (event.type === "ratelimit.admitted") {
+      this.#rateLimitAdmitted += 1
+      return
+    }
+    if (event.type === "ratelimit.rejected") {
+      if (event.reason)
+        this.#count(this.#rateLimitRejectionsByReason, event.reason)
+      this.#count(this.#rateLimitRejectionsByScope, event.scope)
+      if (event.retryAfterMs !== undefined)
+        this.#rateLimitRetryAfterMaxMs = Math.max(
+          this.#rateLimitRetryAfterMaxMs,
+          event.retryAfterMs,
+        )
       return
     }
     // A local policy reports `scope: "process"` on every event: its state is
@@ -159,6 +178,10 @@ export class EventSummarizer {
       breakerRejectionsByState: { ...this.#breakerRejectionsByState },
       bulkheadRejectionsByReason: { ...this.#bulkheadRejectionsByReason },
       bulkheadRejectionsByScope: { ...this.#bulkheadRejectionsByScope },
+      rateLimitAdmitted: this.#rateLimitAdmitted,
+      rateLimitRejectionsByReason: { ...this.#rateLimitRejectionsByReason },
+      rateLimitRejectionsByScope: { ...this.#rateLimitRejectionsByScope },
+      rateLimitRetryAfterMaxMs: this.#rateLimitRetryAfterMaxMs,
       peakProbesInFlightByScope: { ...this.#peakProbesInFlightByScope },
       leaseLost: this.#leaseLost,
       degraded: this.#degraded,

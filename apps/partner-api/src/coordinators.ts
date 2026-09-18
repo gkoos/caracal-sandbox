@@ -4,12 +4,14 @@ import type {
   BreakerIdentity,
   BulkheadCoordinator,
   ObserveResult,
+  RateLimitCoordinator,
   SettleProbeResult,
 } from "@gkoos/caracal"
 import {
   createCoordinationClient,
   redisCircuitBreakerCoordinator,
   redisCoordinator,
+  redisRateLimitCoordinator,
 } from "@gkoos/caracal/redis"
 import type { Redis } from "ioredis"
 import type { AppConfig } from "./config.js"
@@ -48,6 +50,7 @@ export type CoordinatorSet = {
   stats: CoordinationStats
   bulkhead: BulkheadCoordinator
   breaker: BreakerCoordinator
+  rateLimit: RateLimitCoordinator
   /** Regions that have their own coordinator, from `REDIS_URL_REGION_*`. */
   regionCoordinators: string[]
   connect(): Promise<void>
@@ -138,6 +141,7 @@ export function createCoordinators(
       client: Redis
       bulkhead: BulkheadCoordinator
       breaker: BreakerCoordinator
+      rateLimit: RateLimitCoordinator
     }
   >()
 
@@ -149,6 +153,7 @@ export function createCoordinators(
       client,
       bulkhead: redisCoordinator(scripted, { namespace }),
       breaker: redisCircuitBreakerCoordinator(scripted, { namespace }),
+      rateLimit: redisRateLimitCoordinator(scripted, { namespace }),
     })
   }
 
@@ -206,6 +211,14 @@ export function createCoordinators(
           identity,
           params,
         ) as Promise<SettleProbeResult>
+      },
+    },
+    rateLimit: {
+      command(
+        identity: { name: string; operation: string; scope: string },
+        params: Parameters<RateLimitCoordinator["command"]>[1],
+      ) {
+        return regionFor(identity.scope).rateLimit.command(identity, params)
       },
     },
     async connect() {

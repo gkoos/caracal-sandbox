@@ -1,0 +1,51 @@
+# The twelfth study: the rate axis, distributed.
+#
+# The bulkhead limits concurrency (how many calls are in flight); the rate limiter
+# limits arrival rate (how fast calls start). Here four replicas share one rate
+# budget through Redis, so the dependency sees ~100 req/s instead of the ~400
+# offered - the rate-axis twin of study 02's shared concurrency budget.
+#
+#   npm run demo 12
+#   npm run compare 02 12    # concurrency (bulkhead) vs rate (rate limit)
+id: "12-rate-distributed"
+title: "One shared rate budget"
+question: "What changes when the *rate* budget belongs to the downstream, not the process?"
+
+topology:
+  policies: distributed
+  scope: global
+  replicas: 4
+  env:
+    REDIS_URL: "redis://127.0.0.1:6379"
+    BULKHEAD_LIMIT: "20"        # non-binding: 100/s at 30ms is ~3 in flight
+    BULKHEAD_LEASE_MS: "5000"
+    RATE_LIMIT_RATE: "100"      # shared across all four replicas
+    RATE_LIMIT_BURST: "10"
+    POLICY_TIMEOUT_MS: "2000"
+    RETRY_MAX_ATTEMPTS: "1"     # no retry: the shed rate is the signal
+
+scenario:
+  durationMs: 15000
+  concurrency: 20
+  targetRps: 400               # same offered load as 02, so the comparison is fair
+  seed: 1
+  operations:
+    - { name: "orders.get", method: GET, path: "/orders/{id}", weight: 1 }
+  dependency:
+    latencyMs: 30
+    failureRate: 0
+    capacity: 8
+
+checks:
+  - { name: witnessPresent }
+  - { name: witnessSamplesAtLeast, params: { value: 200 } }
+  - { name: requestsAtLeast, params: { value: 500 } }
+  # The headline: the dependency sustains ~100 req/s, not the ~400 offered.
+  - { name: dependencyRateAtMost, params: { value: 110 } }
+  - { name: dependencyRateAtLeast, params: { value: 80 } }
+  # The surplus is shed as rate-exceeded, not pushed onto the dependency.
+  - { name: rateLimitRejectionsAtLeast, params: { reason: rate-exceeded, value: 500 } }
+  - { name: rateLimitAdmittedAtLeast, params: { value: 1000 } }
+  # Healthy dependency, healthy coordination: no breaker opens.
+  - { name: breakerOpensEquals, params: { value: 0 } }
+  - { name: coordinatorRoundTripsAtMost, params: { value: 6 } }

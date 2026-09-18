@@ -9,6 +9,6 @@
     "./checks": "./src/checks.ts"
   },
   "dependencies": {
-    "@gkoos/caracal": "0.6.0"
+    "@gkoos/caracal": "0.7.0"
   }
 }

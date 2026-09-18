@@ -31,6 +31,12 @@ export type AppConfig = {
     leaseMs: number
     queue: { limit: number; timeoutMs: number } | undefined
   }
+  rateLimit: {
+    /** Sustained rate in requests/second. `0` disables the rate limiter. */
+    rate: number
+    /** Maximum burst before the strict rate applies. */
+    burst: number
+  }
   breaker: {
     name: string
     minimumThroughput: number
@@ -144,6 +150,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
             }
           : undefined,
     },
+    rateLimit: {
+      rate: Number(env.RATE_LIMIT_RATE ?? 0),
+      burst: int(env, "RATE_LIMIT_BURST", 10),
+    },
     breaker: {
       name: env.BREAKER_NAME ?? "partner-api",
       minimumThroughput: int(env, "BREAKER_MINIMUM_THROUGHPUT", 20),
@@ -178,6 +188,10 @@ export function describeConfig(
     queue: config.bulkhead.queue
       ? `${config.bulkhead.queue.limit} waiters, ${config.bulkhead.queue.timeoutMs}ms`
       : "none (immediate reject)",
+    "rate limit":
+      config.rateLimit.rate > 0
+        ? `${config.rateLimit.rate}/s, burst ${config.rateLimit.burst}`
+        : "off",
     "breaker minimum throughput": config.breaker.minimumThroughput,
     "breaker failure threshold": config.breaker.failureThreshold,
     "breaker open": `${config.breaker.openMs}ms`,

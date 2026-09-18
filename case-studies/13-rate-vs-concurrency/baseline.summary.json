@@ -1,0 +1,171 @@
+{
+  "schema": 1,
+  "runId": "2026-09-18T03-12-33-173_13-rate-vs-concurrency",
+  "demo": "13-rate-vs-concurrency",
+  "title": "Rate is not a concurrency ceiling",
+  "startedAt": "2026-09-18T03:12:33.173Z",
+  "finishedAt": "2026-09-18T03:12:33.173Z",
+  "library": {
+    "version": "0.7.0",
+    "source": "npm"
+  },
+  "topology": {
+    "policies": "distributed",
+    "scope": "global",
+    "config": {
+      "topology": "distributed",
+      "scope": "global",
+      "namespace": "caracal-demo:2026-09-18T03-12-11-223_13-rate-vs-concurrency",
+      "scope label": "on",
+      "onCoordinatorError": "fail-open",
+      "bulkhead limit": 100,
+      "bulkhead lease": "5000ms",
+      "queue": "none (immediate reject)",
+      "rate limit": "100/s, burst 5",
+      "breaker minimum throughput": 20,
+      "breaker failure threshold": 0.5,
+      "breaker open": "5000ms",
+      "breaker half-open probes": 3,
+      "breaker probe lease": "10000ms",
+      "timeout": "5000ms",
+      "retry attempts": 1,
+      "redis command timeout": "1000ms"
+    }
+  },
+  "workload": {
+    "durationMs": 15000,
+    "concurrency": 100,
+    "replicas": 1,
+    "byOperation": {
+      "orders.get": 8576
+    }
+  },
+  "client": {
+    "requests": 8576,
+    "success": 1507,
+    "failure": 0,
+    "refusedByReason": {
+      "rate-limited": 7069
+    },
+    "timedOut": 0,
+    "latencyMs": {
+      "p50": 8,
+      "p95": 286,
+      "p99": 309,
+      "max": 363
+    },
+    "rps": 560
+  },
+  "caracal": {
+    "executionsByOutcome": {
+      "failure": 7069,
+      "success": 1507
+    },
+    "attemptsByClassification": {
+      "success": 1507
+    },
+    "eventsByType": {
+      "execution.started": 8576,
+      "bulkhead.admitted": 8576,
+      "ratelimit.admitted": 1507,
+      "attempt.started": 1507,
+      "ratelimit.rejected": 7069,
+      "bulkhead.released": 8576,
+      "retry.declined": 7069,
+      "execution.settled": 8576,
+      "attempt.settled": 1507,
+      "breaker.observation": 1507
+    },
+    "breakerStateChanges": {},
+    "breakerOpens": 0,
+    "breakerOpensByScope": {},
+    "breakerRejectionsByState": {},
+    "bulkheadRejectionsByReason": {},
+    "bulkheadRejectionsByScope": {},
+    "rateLimitAdmitted": 1507,
+    "rateLimitRejectionsByReason": {
+      "rate-exceeded": 7069
+    },
+    "rateLimitRejectionsByScope": {
+      "global": 7069
+    },
+    "rateLimitRetryAfterMaxMs": 10,
+    "peakProbesInFlightByScope": {},
+    "leaseLost": 0,
+    "degraded": 0,
+    "staleObservations": 0,
+    "coordinatorErrors": 0,
+    "retriesScheduled": 0,
+    "retriesDeclined": 7069,
+    "timeoutsTriggered": 0,
+    "distinctScopes": 1,
+    "maxPermitHoldMs": 338
+  },
+  "checks": [
+    {
+      "name": "witnessPresent",
+      "claim": "the dependency reported its own concurrency",
+      "expected": "present",
+      "actual": "present",
+      "passed": true
+    },
+    {
+      "name": "witnessSamplesAtLeast",
+      "claim": "the dependency took at least 200 samples",
+      "expected": "200",
+      "actual": "1099",
+      "passed": true
+    },
+    {
+      "name": "dependencyRateAtMost",
+      "claim": "the dependency sustained at most 110 request(s)/s",
+      "expected": "<= 110/s",
+      "actual": "100/s",
+      "passed": true
+    },
+    {
+      "name": "dependencyRateAtLeast",
+      "claim": "the dependency sustained at least 80 request(s)/s",
+      "expected": ">= 80/s",
+      "actual": "100/s",
+      "passed": true
+    },
+    {
+      "name": "peakInFlightAtLeast",
+      "claim": "the dependency saw at least 15 concurrent calls",
+      "expected": "15",
+      "actual": "30",
+      "passed": true
+    },
+    {
+      "name": "rateLimitRejectionsAtLeast",
+      "claim": "the rate limiter rejected at least 500 call(s) with reason `rate-exceeded`",
+      "expected": "500",
+      "actual": "7069",
+      "passed": true
+    }
+  ],
+  "passed": true,
+  "notes": [
+    "A rate limit caps arrival rate - what does it fail to protect when work is slow?",
+    "runId: 2026-09-18T03-12-11-223_13-rate-vs-concurrency"
+  ],
+  "witness": {
+    "samples": 1099,
+    "peakInFlight": 30,
+    "peakRps": 106,
+    "peakByScope": {
+      "global": 30
+    },
+    "requests": 1507,
+    "failures": 0,
+    "abandoned": 0
+  },
+  "coordination": {
+    "commands": 35811,
+    "evalsha": 27235,
+    "eval": 0,
+    "errors": 0,
+    "roundTripsPerExecution": 4.18
+  }
+}

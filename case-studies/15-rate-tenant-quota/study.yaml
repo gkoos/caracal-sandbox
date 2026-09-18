@@ -1,0 +1,53 @@
+# The sixteenth study: per-tenant rate quota.
+#
+# Scope a rate limit by tenant and a noisy tenant's traffic is capped at its own
+# rate, leaving the other tenants' share untouched. This is the rate-axis analog
+# of study 04's breaker isolation: the boundary moves to the tenant, so the
+# failure domain (or the quota) is per-tenant.
+#
+#   npm run demo 15
+id: "15-rate-tenant-quota"
+title: "Per-tenant rate quota"
+question: "Does one noisy tenant exhaust the shared rate, or does each tenant get its own?"
+
+topology:
+  policies: distributed
+  scope: tenant
+  replicas: 4
+  env:
+    REDIS_URL: "redis://127.0.0.1:6379"
+    BULKHEAD_LIMIT: "100"       # effectively off: the rate limit is the binding policy
+    BULKHEAD_LEASE_MS: "5000"
+    RATE_LIMIT_RATE: "10"       # per-tenant: 10 req/s each
+    RATE_LIMIT_BURST: "5"
+    POLICY_TIMEOUT_MS: "2000"
+    RETRY_MAX_ATTEMPTS: "1"
+
+scenario:
+  durationMs: 15000
+  concurrency: 20
+  targetRps: 400
+  seed: 1
+  operations:
+    # Most traffic spreads uniformly over 50 tenants; one noisy tenant is
+    # over-represented so its share of the rate is exhausted first.
+    - { method: GET, path: "/orders/{id}", weight: 1 }
+    - { method: GET, path: "/orders/{id}", weight: 5, tenant: "noisy" }
+  tenantPool:
+    prefix: "tenant"
+    count: 50
+  dependency:
+    latencyMs: 30
+    failureRate: 0
+    capacity: 0
+
+checks:
+  - { name: witnessPresent }
+  - { name: requestsAtLeast, params: { value: 500 } }
+  # Each tenant's rate is capped, so the fleet-wide admitted rate stays bounded.
+  - { name: rateLimitAdmittedAtLeast, params: { value: 500 } }
+  - { name: rateLimitRejectionsAtLeast, params: { reason: rate-exceeded, value: 500 } }
+  # The noisy tenant is the scope that was rate-limited.
+  - { name: rateLimitRejectionsInScopeAtLeast, params: { scope: "tenant:noisy", value: 100 } }
+  # Cardinality is the cost: 50 tenants means 50 distinct rate scopes.
+  - { name: distinctScopesAtLeast, params: { value: 50 } }
