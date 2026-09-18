@@ -2,6 +2,7 @@ import {
   type EventSinks,
   type Operation,
   BulkheadRejectedError,
+  RateLimitExceededError,
   operation,
 } from "@gkoos/caracal"
 import { fetchAdapter } from "@gkoos/caracal/fetch"
@@ -56,13 +57,17 @@ export function buildOperations(
   pool?: PostgresQueryable,
 ): PartnerOperations {
   const adapter = fetchAdapter({
-    // A bulkhead rejection is the policy shedding, not the dependency failing.
-    // The fetch adapter's default `classifyError` returns "retryable" for *any*
-    // thrown error, so without this a shed call is retried and - worse - the
-    // outer breaker counts the shedding against the dependency's health and opens
-    // under overload (docs/findings.md, finding 3). "ignored" means neither.
+    // A bulkhead or rate-limit rejection is the policy shedding, not the
+    // dependency failing. The fetch adapter's default `classifyError` returns
+    // "retryable" for *any* thrown error, so without this a shed call is retried
+    // and - worse - the outer breaker counts the shedding against the dependency's
+    // health and opens under overload (docs/findings.md, finding 3). "ignored"
+    // means neither.
     classifyError: (error) =>
-      error instanceof BulkheadRejectedError ? "ignored" : "retryable",
+      error instanceof BulkheadRejectedError ||
+      error instanceof RateLimitExceededError
+        ? "ignored"
+        : "retryable",
   })
   const ordersGet = operation({
     name: "orders.get",
@@ -88,10 +93,13 @@ export function buildOperations(
         name: "report.run",
         adapter: postgresAdapter(pool, {
           // Same finding-3 fix as fetch: the postgres adapter's default classifies
-          // a thrown error as "failure", which would count a bulkhead rejection
-          // against the breaker. "ignored" for shedding, "failure" for the rest.
+          // a thrown error as "failure", which would count a bulkhead or rate-limit
+          // rejection against the breaker. "ignored" for shedding, "failure" for the rest.
           classifyError: (error) =>
-            error instanceof BulkheadRejectedError ? "ignored" : "failure",
+            error instanceof BulkheadRejectedError ||
+            error instanceof RateLimitExceededError
+              ? "ignored"
+              : "failure",
         }),
         policies: policies.policies,
         events,

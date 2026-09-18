@@ -509,6 +509,79 @@ const scenes = {
     )
     return svg(780, 360, parts.join("\n"))
   },
+
+  "12-rate-distributed"() {
+    const parts = []
+    scaffold(parts, {
+      replicasSub: (i) => `replica ${i} · shared rate`,
+      loadgenSub: "400 req/s",
+    })
+    valkeyNode(parts, "scope: global · rate 100/s")
+    witnessUnder(parts, "witness: ~100 req/s")
+    parts.push(
+      caption(
+        390,
+        345,
+        "one shared rate budget holds the dependency at ~100 req/s, not the ~400 offered",
+      ),
+    )
+    return svg(780, 360, parts.join("\n"))
+  },
+
+  "13-rate-vs-concurrency"() {
+    const parts = []
+    scaffold(parts, {
+      replicas: 1,
+      replicasSub: () => "replica · rate 100/s",
+      loadgenSub: "slow work · 200ms",
+    })
+    valkeyNode(parts, "scope: global · rate 100/s")
+    witnessUnder(parts, "witness: ~20 in flight")
+    parts.push(
+      caption(
+        390,
+        345,
+        "100 req/s at 200ms piles up to ~20 in flight - the rate limit capped the rate, not the concurrency",
+      ),
+    )
+    return svg(780, 360, parts.join("\n"))
+  },
+
+  "14-rate-burst-retry-after"() {
+    const parts = []
+    scaffold(parts, {
+      replicas: 1,
+      replicasSub: () => "replica · rate 50/s, burst 20",
+      loadgenSub: "200 req/s",
+    })
+    witnessUnder(parts, "witness: burst, then 50/s")
+    parts.push(
+      caption(
+        390,
+        345,
+        "the burst admits ~20 up front, then the sustained 50/s sheds the surplus with a retry-after hint",
+      ),
+    )
+    return svg(780, 360, parts.join("\n"))
+  },
+
+  "15-rate-tenant-quota"() {
+    const parts = []
+    scaffold(parts, {
+      replicasSub: (i) => `replica ${i} · rate 10/s per tenant`,
+      loadgenSub: "50 tenants · one noisy",
+    })
+    valkeyNode(parts, "scope: tenant · rate 10/s")
+    witnessUnder(parts, "witness: noisy tenant shed")
+    parts.push(
+      caption(
+        390,
+        345,
+        "scoped by tenant, the noisy tenant caps itself and the other 49 keep their share",
+      ),
+    )
+    return svg(780, 360, parts.join("\n"))
+  },
 }
 
 // ---------------------------------------------------------------------------

@@ -2,6 +2,7 @@ import {
   bulkhead,
   circuitBreaker,
   type Policy,
+  rateLimit,
   retry,
   timeout,
 } from "@gkoos/caracal"
@@ -10,10 +11,12 @@ import type { CoordinatorSet } from "./coordinators.js"
 import { scopeFunction } from "./scope.js"
 
 export type PolicySet = {
-  /** The pipeline, outermost first: breaker, timeout, retry, bulkhead. */
+  /** The pipeline, outermost first: breaker, timeout, retry, bulkhead, rate. */
   policies: Policy[]
   breaker: Policy
   bulkhead: Policy
+  /** Present only when a rate limit was configured. */
+  rate: Policy | undefined
   coordination: "local" | "distributed"
   scopeLabel: string
   /** Local policies expose `snapshot()`; distributed state lives in Redis. */
@@ -91,6 +94,29 @@ export function buildPolicies(
     })
   }
 
+  // The rate limiter is the axis next to the bulkhead's concurrency axis. It is
+  // an *additional* policy: when configured, it sits innermost and bounds how
+  // fast calls start, whatever the concurrency budget is doing.
+  let rate: Policy | undefined
+  if (config.rateLimit.rate > 0) {
+    if (distributed) {
+      if (!coordinators) throw new MissingCoordinatorError("partner-api-rate")
+      rate = rateLimit.distributed({
+        name: "partner-api-rate",
+        coordinator: coordinators.rateLimit,
+        scope,
+        rate: config.rateLimit.rate,
+        burst: config.rateLimit.burst,
+      })
+    } else {
+      rate = rateLimit.local({
+        name: "partner-api-rate",
+        rate: config.rateLimit.rate,
+        burst: config.rateLimit.burst,
+      })
+    }
+  }
+
   return {
     policies: [
       breaker,
@@ -100,14 +126,17 @@ export function buildPolicies(
         delay: config.retry.delayMs,
       }),
       capacity,
+      ...(rate ? [rate] : []),
     ],
     breaker,
     bulkhead: capacity,
+    rate,
     coordination: distributed ? "distributed" : "local",
     scopeLabel,
     snapshot() {
       const localBreaker = breaker as { snapshot?: () => unknown }
       const localCapacity = capacity as { snapshot?: () => unknown }
+      const localRate = rate as { snapshot?: () => unknown } | undefined
       return {
         coordination: distributed ? "distributed" : "local",
         bulkhead:
@@ -118,6 +147,12 @@ export function buildPolicies(
           typeof localBreaker.snapshot === "function"
             ? localBreaker.snapshot()
             : "in redis",
+        rate:
+          localRate && typeof localRate.snapshot === "function"
+            ? localRate.snapshot()
+            : rate
+              ? "in redis"
+              : "off",
       }
     },
   }

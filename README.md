@@ -22,6 +22,13 @@ Case studies that run the same workload against the same dependency, move the co
 | [`06 · observability`](case-studies/06-observability-and-cost/README.md) | the sink | a blocking sink triples p99; a throwing/slow-async one leaves it unchanged |
 | [`07 · chaos`](case-studies/07-chaos/README.md) | the lease | kill a replica, freeze another → live leases never observed above 3, return to 0 |
 | [`08 · overload`](case-studies/08-overload/README.md) | the ceiling | a budget of 20 against a capacity-8 dependency → the dependency itself 503s, not caracal |
+| [`09 · local bulkhead lease`](case-studies/09-local-bulkhead-lease/README.md) | the permit | a hung `bulkhead.local` holder is aborted after its `leaseMs`, so its permit is released |
+| [`10 · dispose abandoned body`](case-studies/10-dispose-abandoned-body/README.md) | the response | retry abandons a 5xx body and the fetch adapter's `dispose` cancels it |
+| [`11 · breaker probe lease`](case-studies/11-local-breaker-probe-lease/README.md) | the probe | a hung half-open probe releases its slot after `probeLeaseTtlMs` |
+| [`12 · one shared rate budget`](case-studies/12-rate-distributed/README.md) | the fleet | one shared rate budget → the dependency sustains **~100 req/s**, not ~400 |
+| [`13 · rate vs concurrency`](case-studies/13-rate-vs-concurrency/README.md) | the axis | rate 100/s at 200ms latency → **~20 in flight** (a rate limit is not a concurrency ceiling) |
+| [`14 · burst and retry-after`](case-studies/14-rate-burst-retry-after/README.md) | the knob | `burst: 20` admits a cluster, then 50/s sheds the surplus with a `retry-after` hint |
+| [`15 · per-tenant rate quota`](case-studies/15-rate-tenant-quota/README.md) | the tenant | 50 tenants, one noisy → the noisy tenant's rate is capped, the other 49 unaffected |
 
 Each number above is read from the most independent instrument available: the dependency's own counters (`01`, `02`, `08`), caracal's events for breaker and permit claims (`03`–`05`), the client's own timings (`06`), and Redis's own lease count (`07`). Three of those instruments are not caracal at all: the dependency's counters, the client's clocks, and Redis's own lease state. Where a claim can only be reported by caracal - which breaker opened, how many permits are live - the study says so rather than implying it was independently measured.
 

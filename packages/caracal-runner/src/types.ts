@@ -54,6 +54,8 @@ export type WitnessView = {
   /** Timeline samples the dependency took of its own concurrency. */
   samples: number
   peakInFlight: number
+  /** Highest 1-second arrival rate the dependency measured about itself. */
+  peakRps?: number
   peakByScope: Record<string, number>
   requests: number
   failures: number
@@ -76,6 +78,14 @@ export type CaracalView = {
   breakerRejectionsByState: Record<string, number>
   bulkheadRejectionsByReason: Record<string, number>
   bulkheadRejectionsByScope: Record<string, number>
+  /** `ratelimit.admitted` count. */
+  rateLimitAdmitted: number
+  /** `ratelimit.rejected` by reason (`rate-exceeded`, `coordinator-unavailable`). */
+  rateLimitRejectionsByReason: Record<string, number>
+  /** `ratelimit.rejected` by scope. */
+  rateLimitRejectionsByScope: Record<string, number>
+  /** Longest `retryAfterMs` a `rate-exceeded` rejection carried. */
+  rateLimitRetryAfterMaxMs: number
   /** Highest number of half-open probes believed in flight at once, per scope. */
   peakProbesInFlightByScope: Record<string, number>
   leaseLost: number

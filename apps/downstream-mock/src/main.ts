@@ -59,10 +59,15 @@ let failures = 0
 let abandoned = 0
 let inFlight = 0
 let peak = 0
+let peakRps = 0
 const inFlightByScope = new Map<string, number>()
 const peakByScope: Record<string, number> = {}
 const requestsByStatus: Record<string, number> = {}
 const samples: { at: number; inFlight: number }[] = []
+// Arrival timestamps within the last second: a sliding window whose length is the
+// dependency's own instantaneous arrival rate. This is the rate-axis witness, the
+// complement of `peakInFlight` on the concurrency axis.
+const arrivalTimes: number[] = []
 
 // A timeline of in-flight samples, timed on this process's own clock, so a panel
 // can draw the exact concurrency curve the bulkhead was supposed to flatten.
@@ -108,6 +113,14 @@ async function work(
   const scope = scopeOf(request)
   const started = Date.now()
   requests += 1
+  // Slide the 1s arrival window so the dependency can report its own rate.
+  arrivalTimes.push(started)
+  while (
+    arrivalTimes.length > 0 &&
+    started - (arrivalTimes[0] ?? started) > 1000
+  )
+    arrivalTimes.shift()
+  if (arrivalTimes.length > peakRps) peakRps = arrivalTimes.length
   if (capacity > 0 && inFlight >= capacity) {
     failures += 1
     requestsByStatus["503"] = (requestsByStatus["503"] ?? 0) + 1
@@ -208,6 +221,8 @@ function prometheus(): string {
     "# TYPE downstream_inflight gauge",
     "# HELP downstream_peak_inflight Highest in-flight seen since reset.",
     "# TYPE downstream_peak_inflight gauge",
+    "# HELP downstream_peak_rps Highest 1-second arrival rate seen since reset.",
+    "# TYPE downstream_peak_rps gauge",
     "# HELP downstream_requests_total Requests served, by status.",
     "# TYPE downstream_requests_total counter",
     "# HELP downstream_failures_total Failures served.",
@@ -221,6 +236,7 @@ function prometheus(): string {
   for (const [scope, count] of Object.entries(peakByScope)) {
     lines.push(`downstream_peak_inflight{scope="${scope}"} ${count}`)
   }
+  lines.push(`downstream_peak_rps ${peakRps}`)
   for (const [status, count] of Object.entries(requestsByStatus)) {
     lines.push(`downstream_requests_total{status="${status}"} ${count}`)
   }
@@ -234,6 +250,7 @@ function witness() {
   return {
     samples: samples.length,
     peakInFlight: peak,
+    peakRps,
     peakByScope,
     requests,
     failures,
@@ -248,6 +265,8 @@ function reset(): void {
   abandoned = 0
   inFlight = 0
   peak = 0
+  peakRps = 0
+  arrivalTimes.length = 0
   inFlightByScope.clear()
   for (const key of Object.keys(peakByScope)) delete peakByScope[key]
   for (const key of Object.keys(requestsByStatus)) delete requestsByStatus[key]

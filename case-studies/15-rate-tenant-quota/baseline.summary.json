@@ -1,0 +1,221 @@
+{
+  "schema": 1,
+  "runId": "2026-09-18T03-13-03-001_15-rate-tenant-quota",
+  "demo": "15-rate-tenant-quota",
+  "title": "Per-tenant rate quota",
+  "startedAt": "2026-09-18T03:13:03.001Z",
+  "finishedAt": "2026-09-18T03:13:03.001Z",
+  "library": {
+    "version": "0.7.0",
+    "source": "npm"
+  },
+  "topology": {
+    "policies": "distributed",
+    "scope": "tenant",
+    "config": {
+      "topology": "distributed",
+      "scope": "tenant",
+      "namespace": "caracal-demo:2026-09-18T03-12-41-245_15-rate-tenant-quota",
+      "scope label": "off (unbounded cardinality)",
+      "onCoordinatorError": "fail-open",
+      "bulkhead limit": 100,
+      "bulkhead lease": "5000ms",
+      "queue": "none (immediate reject)",
+      "rate limit": "10/s, burst 5",
+      "breaker minimum throughput": 20,
+      "breaker failure threshold": 0.5,
+      "breaker open": "5000ms",
+      "breaker half-open probes": 3,
+      "breaker probe lease": "10000ms",
+      "timeout": "2000ms",
+      "retry attempts": 1,
+      "redis command timeout": "1000ms"
+    }
+  },
+  "workload": {
+    "durationMs": 15000,
+    "concurrency": 20,
+    "replicas": 4,
+    "byOperation": {
+      "GET /orders/{id}": 6352
+    }
+  },
+  "client": {
+    "requests": 6352,
+    "success": 1256,
+    "failure": 0,
+    "refusedByReason": {
+      "rate-limited": 5096
+    },
+    "timedOut": 0,
+    "latencyMs": {
+      "p50": 5,
+      "p95": 53,
+      "p99": 60,
+      "max": 92
+    },
+    "rps": 421
+  },
+  "caracal": {
+    "executionsByOutcome": {
+      "failure": 5096,
+      "success": 1256
+    },
+    "attemptsByClassification": {
+      "success": 1256
+    },
+    "eventsByType": {
+      "execution.started": 6352,
+      "bulkhead.admitted": 6352,
+      "ratelimit.admitted": 1256,
+      "attempt.started": 1256,
+      "ratelimit.rejected": 5096,
+      "bulkhead.released": 6352,
+      "retry.declined": 5096,
+      "execution.settled": 6352,
+      "attempt.settled": 1256,
+      "breaker.observation": 1256
+    },
+    "breakerStateChanges": {},
+    "breakerOpens": 0,
+    "breakerOpensByScope": {},
+    "breakerRejectionsByState": {},
+    "bulkheadRejectionsByReason": {},
+    "bulkheadRejectionsByScope": {},
+    "rateLimitAdmitted": 1256,
+    "rateLimitRejectionsByReason": {
+      "rate-exceeded": 5096
+    },
+    "rateLimitRejectionsByScope": {
+      "tenant:noisy": 5096
+    },
+    "rateLimitRetryAfterMaxMs": 100,
+    "peakProbesInFlightByScope": {},
+    "leaseLost": 0,
+    "degraded": 0,
+    "staleObservations": 0,
+    "coordinatorErrors": 0,
+    "retriesScheduled": 0,
+    "retriesDeclined": 5096,
+    "timeoutsTriggered": 0,
+    "distinctScopes": 51,
+    "maxPermitHoldMs": 79
+  },
+  "checks": [
+    {
+      "name": "witnessPresent",
+      "claim": "the dependency reported its own concurrency",
+      "expected": "present",
+      "actual": "present",
+      "passed": true
+    },
+    {
+      "name": "requestsAtLeast",
+      "claim": "the run issued at least 500 requests",
+      "expected": "500",
+      "actual": "6352",
+      "passed": true
+    },
+    {
+      "name": "rateLimitAdmittedAtLeast",
+      "claim": "the rate limiter admitted at least 500 call(s)",
+      "expected": "500",
+      "actual": "1256",
+      "passed": true
+    },
+    {
+      "name": "rateLimitRejectionsAtLeast",
+      "claim": "the rate limiter rejected at least 500 call(s) with reason `rate-exceeded`",
+      "expected": "500",
+      "actual": "5096",
+      "passed": true
+    },
+    {
+      "name": "rateLimitRejectionsInScopeAtLeast",
+      "claim": "scope `tenant:noisy` was rate-limited at least 100 time(s)",
+      "expected": "100",
+      "actual": "5096",
+      "passed": true
+    },
+    {
+      "name": "distinctScopesAtLeast",
+      "claim": "the stream touched at least 50 distinct scope(s)",
+      "expected": "50",
+      "actual": "51",
+      "passed": true
+    }
+  ],
+  "passed": true,
+  "notes": [
+    "Does one noisy tenant exhaust the shared rate, or does each tenant get its own?",
+    "runId: 2026-09-18T03-12-41-245_15-rate-tenant-quota"
+  ],
+  "witness": {
+    "samples": 1016,
+    "peakInFlight": 14,
+    "peakRps": 103,
+    "peakByScope": {
+      "tenant:noisy": 5,
+      "tenant:tenant3": 2,
+      "tenant:tenant12": 1,
+      "tenant:tenant29": 1,
+      "tenant:tenant2": 1,
+      "tenant:tenant43": 2,
+      "tenant:tenant8": 2,
+      "tenant:tenant15": 2,
+      "tenant:tenant26": 2,
+      "tenant:tenant1": 2,
+      "tenant:tenant27": 2,
+      "tenant:tenant19": 2,
+      "tenant:tenant40": 2,
+      "tenant:tenant13": 1,
+      "tenant:tenant48": 2,
+      "tenant:tenant5": 2,
+      "tenant:tenant31": 1,
+      "tenant:tenant34": 2,
+      "tenant:tenant36": 2,
+      "tenant:tenant47": 2,
+      "tenant:tenant32": 2,
+      "tenant:tenant39": 1,
+      "tenant:tenant45": 1,
+      "tenant:tenant23": 1,
+      "tenant:tenant17": 2,
+      "tenant:tenant46": 2,
+      "tenant:tenant41": 1,
+      "tenant:tenant16": 2,
+      "tenant:tenant14": 2,
+      "tenant:tenant33": 2,
+      "tenant:tenant18": 2,
+      "tenant:tenant28": 1,
+      "tenant:tenant9": 2,
+      "tenant:tenant4": 2,
+      "tenant:tenant10": 2,
+      "tenant:tenant21": 2,
+      "tenant:tenant22": 1,
+      "tenant:tenant20": 2,
+      "tenant:tenant11": 2,
+      "tenant:tenant49": 2,
+      "tenant:tenant38": 2,
+      "tenant:tenant44": 2,
+      "tenant:tenant25": 2,
+      "tenant:tenant42": 1,
+      "tenant:tenant35": 2,
+      "tenant:tenant6": 2,
+      "tenant:tenant37": 1,
+      "tenant:tenant30": 3,
+      "tenant:tenant7": 2,
+      "tenant:tenant0": 1,
+      "tenant:tenant24": 1
+    },
+    "requests": 1256,
+    "failures": 0,
+    "abandoned": 0
+  },
+  "coordination": {
+    "commands": 26664,
+    "evalsha": 20312,
+    "eval": 0,
+    "errors": 0,
+    "roundTripsPerExecution": 4.2
+  }
+}

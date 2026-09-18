@@ -61,9 +61,11 @@ checkExports("@gkoos/caracal", caracal, {
   retry: "function",
   bulkhead: "object",
   circuitBreaker: "object",
+  rateLimit: "object",
   TimeoutError: "function",
   CircuitOpenError: "function",
   BulkheadRejectedError: "function",
+  RateLimitExceededError: "function",
 })
 
 checkExports("bulkhead", caracal.bulkhead, {
@@ -76,11 +78,17 @@ checkExports("circuitBreaker", caracal.circuitBreaker, {
   distributed: "function",
 })
 
+checkExports("rateLimit", caracal.rateLimit, {
+  local: "function",
+  distributed: "function",
+})
+
 checkExports("@gkoos/caracal/redis", redisModule, {
   createCoordinationClient: "function",
   createCoordinationClusterClient: "function",
   redisCoordinator: "function",
   redisCircuitBreakerCoordinator: "function",
+  redisRateLimitCoordinator: "function",
   CoordinatorUnavailableError: "function",
 })
 
