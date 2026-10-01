@@ -8,7 +8,7 @@
     ".": "./src/index.ts",
     "./checks": "./src/checks.ts"
   },
-  "dependencies": {
-    "@gkoos/caracal": "0.8.0"
+  "peerDependencies": {
+    "@gkoos/caracal": "*"
   }
 }

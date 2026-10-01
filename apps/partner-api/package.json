@@ -8,8 +8,10 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@gkoos/caracal": "0.8.0",
     "caracal-observability": "*",
     "caracal-runner": "*"
+  },
+  "peerDependencies": {
+    "@gkoos/caracal": "*"
   }
 }
