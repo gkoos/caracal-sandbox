@@ -7,6 +7,8 @@ npm run demo 16
 npm run compare 02 16
 ```
 
+![topology](diagram.svg)
+
 ## What it sets up
 
 Study 02's four-replica distributed bulkhead at `limit: 8`, plus a breaker and a
@@ -32,12 +34,12 @@ step. The dependency's own 10ms in-flight timeline is the judge:
 | limit in force | dependency peak in flight | samples in window |
 | -------------- | ------------------------: | ----------------: |
 | 1              |                         1 |                46 |
-| 2              |                         2 |                46 |
+| 2              |                         2 |                45 |
 | 4              |                         4 |                46 |
-| 8              |                         8 |               918 |
+| 8              |                         8 |               825 |
 
 ```text
-start     value=1  revision=1  (2ms after the close event)
+start     value=1  revision=1  (3ms after the close event)
 step      value=2  revision=2
 step      value=4  revision=3
 complete  value=8  revision=4
@@ -48,11 +50,11 @@ time: a single writer wins each CAS, and the ladder is the history of the record
 not of a process. The run's other numbers:
 
 ```text
-witness         peak in flight 8, peak 65 req/s, 1007 requests, 58 failures
-client          949/4439 ok, refused {bulkhead:capacity: 3181, breaker-open: 251}
-ramp            floor write on open: 1, conflicts: 0, witness samples: 1336
-breaker         opens: 1
-coordination    2.47 round trips per execution (10957 commands, 0 errors)
+witness         peak in flight 8, peak 65 req/s, 939 requests, 58 failures
+client          881/4432 ok, refused {bulkhead:capacity: 3014, breaker-open: 479}
+ramp            floor writes on open: 2, conflicts: 0, witness samples: 1308
+breaker         opens: 2
+coordination    2.46 round trips per execution (10882 commands, 0 errors)
 ```
 
 ## What this shows
@@ -98,3 +100,47 @@ coordination    2.47 round trips per execution (10957 commands, 0 errors)
 npm run compare 02 16    # a snapped-back ceiling vs a ramped one
 npm run demo 12          # the rate axis, distributed
 ```
+
+## Example run
+
+```bash
+npm run demo 16
+```
+
+```text
+> caracal-sandbox@0.0.0 demo
+> node --import tsx scripts/demo.mjs 16
+
+downstream-mock on :4200 (latency 100ms, failureRate 0)
+partner-api replica 0 on :4101 (distributed, scope global)
+partner-api replica 3 on :4104 (distributed, scope global)
+partner-api replica 2 on :4103 (distributed, scope global)
+partner-api replica 1 on :4102 (distributed, scope global)
+
+16-recovery-ramp - A recovery ramp the application owns
+run 2026-10-18T22-26-40-299_16-recovery-ramp (4 replica(s), 20000ms)
+  witness peak in-flight: 8
+  client: 881/4432 ok, refused {"bulkhead:capacity":3014,"breaker-open":479}, 0 timed out
+  coordination: 2.46 trips/exec (10882 commands)
+  ramp: bulkhead 1 -> 2 -> 4 -> 8 (0 conflict(s), 2 floor write(s), 1308 witness sample(s))
+  ok    the dependency reported its own concurrency  [present]
+  ok    the dependency took at least 500 samples  [1308]
+  ok    the run issued at least 300 requests  [4432]
+  ok    the ramp applied at least 4 step(s)  [4]
+  ok    every ramp step raised the limit above the previous one  [increasing]
+  ok    the ramp started after the breaker closed  [1792362407080]
+  ok    the ramp finished on the baseline (8)  [8]
+  ok    at most 20 ramp write(s) lost the CAS race  [0]
+  ok    during every ramp step the dependency stayed within the limit in force (+0)  [within]
+  ok    the dependency never saw more than 8 concurrent calls  [8]
+  ok    the breaker opened at most 8 time(s)  [2]
+  ok    at most 8 coordinator round trip(s) per execution  [2.46]
+
+PASS - C:\projects\caracal-demo\runs/2026-10-18T22-26-40-299_16-recovery-ramp
+```
+
+The two `open` floor writes are the breaker's re-open after failed half-open
+probes during the failure window; each one puts the record back on the floor, and
+the ladder starts over from there on the next close. That is why the check is
+`rampStepsAtLeast` and not `rampStepsEquals`: the number of closes is the
+dependency's behaviour, not the controller's.
