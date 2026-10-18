@@ -189,6 +189,16 @@ async function sampleLiveLeases(client) {
   return total
 }
 
+/** The dependency's own in-flight timeline; empty when it cannot be read. */
+async function readTimeline(url) {
+  try {
+    const response = await fetch(`${url}/_witness/timeline`)
+    return (await response.json()).samples ?? []
+  } catch {
+    return []
+  }
+}
+
 async function applyAction(downstreamUrl, action) {
   if (action.action === "dependency.failRegions") {
     await fetch(`${downstreamUrl}/_control`, {
@@ -196,6 +206,21 @@ async function applyAction(downstreamUrl, action) {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ failRegions: action.regions ?? [] }),
     })
+    return
+  }
+  if (
+    action.action === "dependency.fail" ||
+    action.action === "dependency.recover"
+  ) {
+    // The timeline drives the dependency's failure rate: a failure window opens
+    // the breaker, a healthy window lets a half-open probe close it.
+    const failureRate = action.action === "dependency.fail" ? 1 : 0
+    await fetch(`${downstreamUrl}/_control`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ failureRate }),
+    })
+    chaosActions.push(`${action.action}(failureRate=${failureRate})`)
     return
   }
   if (action.action === "replica.freeze") {
@@ -317,6 +342,9 @@ for (let index = 0; index < replicas; index += 1) {
       DOWNSTREAM_URL: downstreamUrl,
       EVENTS_FILE: `${runDirectory}/replica-${index}.ndjson`,
       META_FILE: `${runDirectory}/replica-${index}.meta.json`,
+      // One ramp log per replica: every replica runs a controller, so the merged
+      // file is the history of the race, not of a single writer.
+      RAMP_FILE: `${runDirectory}/ramp-${index}.ndjson`,
     },
     `http://127.0.0.1:${port}`,
   )
@@ -357,6 +385,11 @@ const loadPromise = runLoad(targets, downstreamUrl, {
 // Timeline actions fire while the load runs, on the same event loop.
 await runTimeline(downstreamUrl, demo.timeline, startedAt)
 const { client, witness, byOperation } = await loadPromise
+// Read the witness's timeline before `stopAll`: the dependency is what measured
+// the concurrency the ramp was supposed to bound.
+const rampTimeline = demo.topology.env?.RAMP
+  ? await readTimeline(downstreamUrl)
+  : []
 sampling = false
 await samplerPromise
 
@@ -394,6 +427,7 @@ if (chaosClient) {
 
 const summarizer = new EventSummarizer()
 const coordination = { commands: 0, evalsha: 0, eval: 0, errors: 0 }
+const rampLines = []
 let replicaConfig = {}
 
 for (let index = 0; index < replicas; index += 1) {
@@ -407,6 +441,15 @@ for (let index = 0; index < replicas; index += 1) {
   } catch {
     // A replica that never flushed (no traffic, or killed before a flush) has
     // nothing to contribute; the witness and client views still decide the run.
+  }
+  try {
+    const lines = readFileSync(`${runDirectory}/ramp-${index}.ndjson`, "utf8")
+      .trim()
+      .split("\n")
+      .filter(Boolean)
+    for (const line of lines) rampLines.push(JSON.parse(line))
+  } catch {
+    // No ramp configured in this run: no file, nothing to merge.
   }
   try {
     const meta = JSON.parse(
@@ -432,6 +475,33 @@ const executions = Object.values(caracal.executionsByOutcome).reduce(
 )
 const distributed = demo.topology.policies === "distributed"
 
+// The ramp view: applied writes from every replica, merged, plus the witness's
+// own timeline so each step can be checked against what the dependency saw.
+let ramp
+if (rampLines.length > 0) {
+  const applied = rampLines.filter(
+    (line) => line.phase !== "conflict" && line.phase !== "abort",
+  )
+  const phases = {}
+  for (const line of rampLines) {
+    phases[line.phase] = (phases[line.phase] ?? 0) + 1
+  }
+  const samples = rampTimeline
+  const first = rampLines[0]
+  ramp = {
+    target: first.target,
+    baseline: first.baseline,
+    floor: first.floor,
+    // Every replica stamps on this machine's clock; sorting makes the merged
+    // history a single timeline.
+    steps: [...applied].sort((left, right) => left.at - right.at),
+    phases,
+    conflicts: phases.conflict ?? 0,
+    restored: Boolean(phases.restore),
+    samples,
+  }
+}
+
 const summary = createSummary({
   demo: demo.id,
   title: demo.title,
@@ -451,6 +521,7 @@ const summary = createSummary({
   client,
   witness,
   caracal,
+  ...(ramp ? { ramp } : {}),
   ...(distributed
     ? {
         coordination: {
@@ -493,6 +564,14 @@ if (distributed) {
 if (summary.chaos) {
   console.log(
     `  chaos: max live leases ${summary.chaos.maxLiveLeases}/${summary.chaos.limit}, final ${summary.chaos.finalLiveLeases}, actions [${summary.chaos.actions.join(", ")}]`,
+  )
+}
+if (summary.ramp) {
+  const applied = summary.ramp.steps
+    .filter((step) => ["start", "step", "complete"].includes(step.phase))
+    .map((step) => step.value)
+  console.log(
+    `  ramp: ${summary.ramp.target} ${applied.join(" -> ")} (${summary.ramp.conflicts} conflict(s), ${summary.ramp.phases.open ?? 0} floor write(s), ${summary.ramp.samples.length} witness sample(s))`,
   )
 }
 for (const check of summary.checks) {

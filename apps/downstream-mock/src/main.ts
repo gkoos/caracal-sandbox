@@ -292,6 +292,12 @@ const server = createServer((request, response) => {
     json(response, 200, witness())
     return
   }
+  if (url.pathname === "/_witness/timeline") {
+    // The whole 10ms in-flight timeline, so a recovery ramp can be checked step by
+    // step against what the dependency actually saw, not just its peak.
+    json(response, 200, { samples })
+    return
+  }
   if (url.pathname === "/_metrics") {
     response.writeHead(200, { "content-type": "text/plain; version=0.0.4" })
     response.end(prometheus())

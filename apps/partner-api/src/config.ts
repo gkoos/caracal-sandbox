@@ -10,6 +10,18 @@
 export type Topology = "local" | "distributed"
 export type ScopeKind = "global" | "region" | "tenant"
 export type CoordinatorErrorBehaviour = "fail-open" | "fail-closed"
+export type RampTarget = "bulkhead" | "rate"
+
+/** The application recovery ramp: the policy of moving a ceiling, not the ceiling. */
+export type RampConfig = {
+  target: RampTarget
+  /** The constructor value the ramp ends on. */
+  baseline: number
+  /** Where recovery starts. */
+  floor: number
+  /** Delay between steps. */
+  stepMs: number
+}
 
 export type AppConfig = {
   demo: string
@@ -49,6 +61,7 @@ export type AppConfig = {
   }
   timeoutMs: number
   retry: { maxAttempts: number; delayMs: number }
+  ramp: RampConfig | undefined
 }
 
 function int(env: NodeJS.ProcessEnv, key: string, fallback: number): number {
@@ -77,6 +90,20 @@ function fraction(
     )
   }
   return value
+}
+
+function optionalOneOf<T extends string>(
+  env: NodeJS.ProcessEnv,
+  key: string,
+  values: T[],
+): T | undefined {
+  const raw = env[key]
+  if (raw === undefined || raw === "") return undefined
+  if (!values.includes(raw as T))
+    throw new RangeError(
+      `${key} must be one of ${values.join(" | ")}, got ${JSON.stringify(raw)}`,
+    )
+  return raw as T
 }
 
 function oneOf<T extends string>(
@@ -109,6 +136,34 @@ function regionUrls(env: NodeJS.ProcessEnv): Record<string, string> {
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   const queueLimit = int(env, "BULKHEAD_QUEUE_LIMIT", 0)
   const breakerOpenMs = int(env, "BREAKER_OPEN_MS", 5_000)
+  const bulkheadLimit = int(env, "BULKHEAD_LIMIT", 5)
+  const rateLimitRate = Number(env.RATE_LIMIT_RATE ?? 0)
+  const rateLimitBurst = int(env, "RATE_LIMIT_BURST", 10)
+  const rampTarget = optionalOneOf<RampTarget>(env, "RAMP", [
+    "bulkhead",
+    "rate",
+  ])
+  const rampBaseline = rampTarget === "bulkhead" ? bulkheadLimit : rateLimitRate
+  const ramp = rampTarget
+    ? {
+        target: rampTarget,
+        baseline: rampBaseline,
+        floor: int(
+          env,
+          "RAMP_FLOOR",
+          Math.max(1, Math.floor(rampBaseline / 8)),
+        ),
+        stepMs: int(env, "RAMP_STEP_MS", 1_000),
+      }
+    : undefined
+  if (ramp) {
+    if (!(ramp.baseline > 0))
+      throw new RangeError(`RAMP=${ramp.target} needs a positive baseline`)
+    if (!(ramp.floor > 0) || ramp.floor >= ramp.baseline)
+      throw new RangeError("RAMP_FLOOR must be positive and below the baseline")
+    if (ramp.stepMs < 100 || ramp.stepMs > 60_000)
+      throw new RangeError("RAMP_STEP_MS must be 100..60000")
+  }
   return {
     demo: env.DEMO ?? "adhoc",
     runId: env.RUN_ID ?? "unrecorded",
@@ -140,7 +195,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
       regionUrls: regionUrls(env),
     },
     bulkhead: {
-      limit: int(env, "BULKHEAD_LIMIT", 5),
+      limit: bulkheadLimit,
       leaseMs: int(env, "BULKHEAD_LEASE_MS", 5_000),
       queue:
         queueLimit > 0
@@ -151,9 +206,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
           : undefined,
     },
     rateLimit: {
-      rate: Number(env.RATE_LIMIT_RATE ?? 0),
-      burst: int(env, "RATE_LIMIT_BURST", 10),
+      rate: rateLimitRate,
+      burst: rateLimitBurst,
     },
+    ramp,
     breaker: {
       name: env.BREAKER_NAME ?? "partner-api",
       minimumThroughput: int(env, "BREAKER_MINIMUM_THROUGHPUT", 20),
@@ -200,5 +256,8 @@ export function describeConfig(
     timeout: `${config.timeoutMs}ms`,
     "retry attempts": config.retry.maxAttempts,
     "redis command timeout": `${config.redis.commandTimeoutMs}ms`,
+    ramp: config.ramp
+      ? `${config.ramp.target} ${config.ramp.floor} -> ${config.ramp.baseline} every ${config.ramp.stepMs}ms`
+      : "off",
   }
 }
