@@ -18,6 +18,7 @@ import { createRequire } from "node:module"
 import {
   BulkheadRejectedError,
   CircuitOpenError,
+  ConfigurationError,
   RateLimitExceededError,
   TimeoutError,
 } from "@gkoos/caracal"
@@ -104,6 +105,10 @@ function httpStatus(error: unknown): {
   if (error instanceof TimeoutError) return { status: 504, kind: "timeout" }
   if (error instanceof CoordinatorUnavailableError) {
     return { status: 503, kind: "coordinator-unavailable" }
+  }
+  if (error instanceof ConfigurationError) {
+    // A stored record the server cannot use: a deployment problem, not backpressure.
+    return { status: 500, kind: "configuration-error", reason: error.reason }
   }
   return { status: 500, kind: "error" }
 }
