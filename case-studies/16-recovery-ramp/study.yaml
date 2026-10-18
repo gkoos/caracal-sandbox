@@ -1,0 +1,74 @@
+# The sixteenth study: a recovery ramp the application owns.
+#
+# The library owns the ceiling; it does not own the policy of moving it. Here the
+# breaker opens on a failure window, closes once the dependency is healthy again,
+# and the application ramps the shared bulkhead back from 1 to its constructor
+# baseline of 8 - one step per second - instead of snapping the full ceiling back
+# on. Every replica runs a controller, and the record's compare-and-set settles
+# the race between them.
+#
+#   npm run demo 16
+#   npm run compare 02 16    # snapped-back ceiling vs ramped ceiling
+id: "16-recovery-ramp"
+title: "A recovery ramp the application owns"
+question: "Who decides how fast a ceiling comes back after the breaker closes?"
+
+topology:
+  policies: distributed
+  scope: global
+  replicas: 4
+  env:
+    REDIS_URL: "redis://127.0.0.1:6379"
+    BULKHEAD_LIMIT: "8"            # the baseline the ramp ends on
+    BULKHEAD_LEASE_MS: "5000"
+    RATE_LIMIT_RATE: "0"
+    POLICY_TIMEOUT_MS: "2000"
+    RETRY_MAX_ATTEMPTS: "1"        # no retry: the breaker's view is the signal
+    BREAKER_MINIMUM_THROUGHPUT: "20"
+    BREAKER_FAILURE_THRESHOLD: "0.5"
+    BREAKER_OPEN_MS: "1000"
+    BREAKER_HALF_OPEN_PROBES: "3"
+    BREAKER_HALF_OPEN_SUCCESSES: "1"
+    # The application's policy, not the library's: start at 1, double every
+    # second, finish on BULKHEAD_LIMIT.
+    RAMP: "bulkhead"
+    RAMP_FLOOR: "1"
+    RAMP_STEP_MS: "1000"
+
+scenario:
+  durationMs: 20000
+  concurrency: 20
+  targetRps: 200
+  seed: 16
+  operations:
+    - { name: "orders.get", method: GET, path: "/orders/{id}", weight: 1 }
+  dependency:
+    latencyMs: 100
+    failureRate: 0
+    capacity: 16
+
+# 1s: the dependency starts failing; the breaker opens and the ramp drops to 1.
+# 3s: it recovers; a half-open probe closes the breaker and the ramp starts.
+timeline:
+  - { at: 1000, action: "dependency.fail" }
+  - { at: 3000, action: "dependency.recover" }
+
+checks:
+  - { name: witnessPresent }
+  - { name: witnessSamplesAtLeast, params: { value: 500 } }
+  - { name: requestsAtLeast, params: { value: 300 } }
+  # The headline: 1 -> 2 -> 4 -> 8, in order, starting after the close, ending on
+  # the baseline. A ramp that skipped or reversed a step fails here.
+  - { name: rampStepsAtLeast, params: { value: 4 } }
+  - { name: rampLimitsIncrease }
+  - { name: rampStartsAfterBreakerClose }
+  - { name: rampFinalLimitEquals, params: { value: 8 } }
+  # Every replica may drive it; the CAS is expected to reject the losers.
+  - { name: rampConflictsAtMost, params: { value: 20 } }
+  # The witness decides: during each step the dependency never saw more than the
+  # ceiling in force (after a settle window for calls admitted under the old one).
+  - { name: rampWitnessPeakAtMostStepLimit, params: { settleMs: 300 } }
+  - { name: peakInFlightAtMost, params: { value: 8 } }
+  # The failure window did open the breaker; the healthy window closed it.
+  - { name: breakerOpensAtMost, params: { value: 8 } }
+  - { name: coordinatorRoundTripsAtMost, params: { value: 8 } }

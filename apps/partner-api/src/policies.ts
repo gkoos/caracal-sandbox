@@ -10,6 +10,10 @@ import type { AppConfig } from "./config.js"
 import type { CoordinatorSet } from "./coordinators.js"
 import { scopeFunction } from "./scope.js"
 
+/** The identity names the coordinator and the ramp controller must agree on. */
+export const BULKHEAD_POLICY_NAME = "partner-api-capacity"
+export const RATE_POLICY_NAME = "partner-api-rate"
+
 export type PolicySet = {
   /** The pipeline, outermost first: breaker, timeout, retry, bulkhead, rate. */
   policies: Policy[]
@@ -19,6 +23,9 @@ export type PolicySet = {
   rate: Policy | undefined
   coordination: "local" | "distributed"
   scopeLabel: string
+  /** Policy names, so a controller addresses the same identity the policy uses. */
+  bulkheadName: string
+  rateName: string
   /** Local policies expose `snapshot()`; distributed state lives in Redis. */
   snapshot(): Record<string, unknown>
 }
@@ -69,7 +76,7 @@ export function buildPolicies(
       onCoordinatorError: config.onCoordinatorError,
     })
     capacity = bulkhead.distributed({
-      name: "partner-api-capacity",
+      name: BULKHEAD_POLICY_NAME,
       coordinator: coordinators.bulkhead,
       scope,
       limit: config.bulkhead.limit,
@@ -87,7 +94,7 @@ export function buildPolicies(
       probeLeaseTtlMs: config.breaker.probeLeaseTtlMs,
     })
     capacity = bulkhead.local({
-      name: "partner-api-capacity",
+      name: BULKHEAD_POLICY_NAME,
       limit: config.bulkhead.limit,
       leaseMs: config.bulkhead.leaseMs,
       ...(config.bulkhead.queue ? { queue: config.bulkhead.queue } : {}),
@@ -102,7 +109,7 @@ export function buildPolicies(
     if (distributed) {
       if (!coordinators) throw new MissingCoordinatorError("partner-api-rate")
       rate = rateLimit.distributed({
-        name: "partner-api-rate",
+        name: RATE_POLICY_NAME,
         coordinator: coordinators.rateLimit,
         scope,
         rate: config.rateLimit.rate,
@@ -110,7 +117,7 @@ export function buildPolicies(
       })
     } else {
       rate = rateLimit.local({
-        name: "partner-api-rate",
+        name: RATE_POLICY_NAME,
         rate: config.rateLimit.rate,
         burst: config.rateLimit.burst,
       })
@@ -133,6 +140,8 @@ export function buildPolicies(
     rate,
     coordination: distributed ? "distributed" : "local",
     scopeLabel,
+    bulkheadName: BULKHEAD_POLICY_NAME,
+    rateName: RATE_POLICY_NAME,
     snapshot() {
       const localBreaker = breaker as { snapshot?: () => unknown }
       const localCapacity = capacity as { snapshot?: () => unknown }

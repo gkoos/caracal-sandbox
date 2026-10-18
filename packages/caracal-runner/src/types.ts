@@ -124,6 +124,44 @@ export type ChaosView = {
   limit: number
 }
 
+/** One write the ramp controller attempted, applied or refused. */
+export type RampStep = {
+  /** Orchestrator clock in ms since epoch. */
+  at: number
+  phase:
+    | "start"
+    | "step"
+    | "complete"
+    | "open"
+    | "restore"
+    | "conflict"
+    | "abort"
+  target: "bulkhead" | "rate"
+  /** The applied limit (bulkhead) or rate (rate limiter). */
+  value: number
+  /** The configuration revision the write produced. */
+  revision: number
+  /** The breaker-close event time that triggered this ramp. */
+  triggerAt?: number
+}
+
+/** The application recovery ramp, as its controller reported it. */
+export type RampView = {
+  target: "bulkhead" | "rate"
+  /** The constructor baseline the ramp ends on. */
+  baseline: number
+  floor: number
+  /** Applied and refused writes, in the order they were attempted. */
+  steps: RampStep[]
+  /** Write counts by phase. */
+  phases: Record<string, number>
+  conflicts: number
+  /** True when a restore write landed. */
+  restored: boolean
+  /** The dependency in-flight timeline, when the run captured it. */
+  samples?: { at: number; inFlight: number }[]
+}
+
 export type Summary = {
   schema: 1
   runId: string
@@ -146,6 +184,7 @@ export type Summary = {
   caracal: CaracalView
   coordination?: CoordinationView
   chaos?: ChaosView
+  ramp?: RampView
   checks: CheckResult[]
   passed: boolean
   notes: string[]

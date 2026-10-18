@@ -8,7 +8,7 @@
  *
  *   node --import tsx apps/partner-api/src/main.ts
  */
-import { readFileSync, writeFileSync } from "node:fs"
+import { appendFileSync, readFileSync, writeFileSync } from "node:fs"
 import {
   createServer,
   type IncomingMessage,
@@ -32,6 +32,7 @@ import {
   loadConfig,
 } from "./index.js"
 import { buildOperations } from "./operations.js"
+import { type RampLine, createRampController } from "./ramp.js"
 
 const CARACAL_VERSION = JSON.parse(
   readFileSync(
@@ -79,13 +80,46 @@ if (coordinators) {
 
 const events = ndjsonSink({ path: eventsFile })
 const policies = buildPolicies(config, coordinators)
+// The recovery ramp is application policy: the library owns the ceiling, this
+// process owns when to move it. Every replica runs one - a probe can close in
+// any of them - and compare-and-set makes concurrent ramps converge.
+const rampFile = process.env.RAMP_FILE ?? "ramp.ndjson"
+const rampBaseline = config.ramp?.baseline
+const rampFloor = config.ramp?.floor
+const ramp =
+  config.ramp && coordinators
+    ? createRampController({
+        breakerName: config.breaker.name,
+        target: config.ramp.target,
+        policyName:
+          config.ramp.target === "bulkhead"
+            ? policies.bulkheadName
+            : policies.rateName,
+        baseline: config.ramp.baseline,
+        floor: config.ramp.floor,
+        stepMs: config.ramp.stepMs,
+        burst: config.rateLimit.burst,
+        managerFor: (scope) => coordinators.configurationFor(scope),
+        write: (line: RampLine) =>
+          appendFileSync(
+            rampFile,
+            `${JSON.stringify({
+              ...line,
+              // Repeated on every line so the summary can read the shape of the
+              // ramp from any replica's file.
+              baseline: rampBaseline,
+              floor: rampFloor,
+            })}\n`,
+          ),
+      })
+    : undefined
 // Every decision the replicas make flows out through both sinks: ndjson for the
 // orchestrator to aggregate, OTLP for the dashboards. Without this, the policies
 // would run and the witness would still measure the dependency - but the summary
 // could not say *why* a call was shed.
 const operations = buildOperations(
   policies,
-  [events, observability.telemetry.sink()],
+  [events, observability.telemetry.sink(), ...(ramp ? [ramp.sink] : [])],
   pool,
 )
 
@@ -212,7 +246,12 @@ const server = createServer((request, response) => {
   }
   if (request.url?.startsWith("/_admin/snapshot")) {
     response.writeHead(200, { "content-type": "application/json" })
-    response.end(JSON.stringify(policies.snapshot()))
+    response.end(
+      JSON.stringify({
+        ...policies.snapshot(),
+        ramp: ramp?.snapshot() ?? null,
+      }),
+    )
     return
   }
   if (request.url?.startsWith("/_admin/freeze")) {
@@ -240,6 +279,7 @@ async function shutdown(): Promise<void> {
   // What the orchestrator aggregates after the run: the coordination cost this
   // replica paid, and the configuration that produced it. Written on shutdown so
   // a live replica has nothing to say that a finished one forgot.
+  await ramp?.stop()
   writeFileSync(
     metaFile,
     JSON.stringify(
@@ -249,6 +289,7 @@ async function shutdown(): Promise<void> {
         caracalVersion: CARACAL_VERSION,
         config: describeConfig(config),
         coordination: coordinators ? { ...coordinators.stats } : null,
+        ramp: ramp?.snapshot() ?? null,
       },
       null,
       2,

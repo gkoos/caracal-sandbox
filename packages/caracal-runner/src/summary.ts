@@ -49,6 +49,7 @@ export type SummaryInput = {
   witness?: Summary["witness"]
   coordination?: Summary["coordination"]
   chaos?: Summary["chaos"]
+  ramp?: Summary["ramp"]
   notes?: string[]
   startedAt?: string
   finishedAt?: string
@@ -75,6 +76,7 @@ export function createSummary(input: SummaryInput): Summary {
   if (input.witness) summary.witness = input.witness
   if (input.coordination) summary.coordination = input.coordination
   if (input.chaos) summary.chaos = input.chaos
+  if (input.ramp) summary.ramp = input.ramp
   // A summary carries its own runId, so the timestamp of creation wins over a
   // caller-supplied start time for naming purposes.
   summary.runId = runId(input.demo, new Date(startedAt))

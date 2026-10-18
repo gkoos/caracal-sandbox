@@ -1,5 +1,5 @@
 import { peakProbesInFlight } from "./events.js"
-import type { CheckResult, Summary } from "./types.js"
+import type { CheckResult, RampStep, Summary } from "./types.js"
 
 export type CheckParams = Record<string, unknown>
 
@@ -60,6 +60,16 @@ function compare(
  * check whose input is absent fails rather than passing quietly, which is the
  * point - a demo that cannot fail is theatre.
  */
+/** Applied ramp writes, in the order the controller applied them. */
+function rampSteps(summary: Summary): RampStep[] {
+  const steps = summary.ramp?.steps ?? []
+  return steps.filter(
+    (step) =>
+      step.phase === "start" ||
+      step.phase === "step" ||
+      step.phase === "complete",
+  )
+}
 export const CHECKS: Record<string, CheckDefinition> = {
   witnessPresent: {
     name: "witnessPresent",
@@ -580,6 +590,132 @@ export const CHECKS: Record<string, CheckDefinition> = {
         expected: `<= ${Math.round(number(params, "value") * 100)}%`,
         actual: `${(rate * 100).toFixed(1)}%`,
         passed: rate <= number(params, "value"),
+      }
+    },
+  },
+  rampStepsAtLeast: {
+    name: "rampStepsAtLeast",
+    claim: (params) =>
+      `the ramp applied at least ${number(params, "value")} step(s)`,
+    description:
+      "A recovery ramp that never stepped is a config write, not a ramp.",
+    evaluate: (summary, params) =>
+      compare(
+        rampSteps(summary).length,
+        number(params, "value"),
+        (a, e) => a >= e,
+      ),
+  },
+  rampLimitsIncrease: {
+    name: "rampLimitsIncrease",
+    claim: () => "every ramp step raised the limit above the previous one",
+    description:
+      "The ramp must climb; a step that lowers the ceiling is a bug.",
+    evaluate: (summary) => {
+      const ordered = [...rampSteps(summary)].sort((l, r) => l.at - r.at)
+      if (ordered.length < 2)
+        return {
+          expected: ">= 2 steps",
+          actual: `${ordered.length}`,
+          passed: false,
+        }
+      const violations = ordered.flatMap((step, index) => {
+        const previous = ordered[index - 1]
+        if (!previous) return []
+        return step.value > previous.value
+          ? []
+          : [`${previous.value} -> ${step.value}`]
+      })
+      return {
+        expected: "strictly increasing",
+        actual: violations.length ? violations.join(", ") : "increasing",
+        passed: violations.length === 0,
+        detail: ordered.map((step) => step.value).join(" -> "),
+      }
+    },
+  },
+  rampStartsAfterBreakerClose: {
+    name: "rampStartsAfterBreakerClose",
+    claim: () => "the ramp started after the breaker closed",
+    description:
+      "The trigger is the close event; a ramp before it is untethered.",
+    evaluate: (summary) => {
+      const start = [...rampSteps(summary)].sort((l, r) => l.at - r.at)[0]
+      if (!start)
+        return { expected: "a start step", actual: MISSING, passed: false }
+      if (start.triggerAt === undefined)
+        return { expected: "a trigger time", actual: MISSING, passed: false }
+      return {
+        expected: `at >= ${start.triggerAt}`,
+        actual: String(start.at),
+        passed: start.at >= start.triggerAt,
+      }
+    },
+  },
+  rampFinalLimitEquals: {
+    name: "rampFinalLimitEquals",
+    claim: (params) =>
+      `the ramp finished on the baseline (${number(params, "value")})`,
+    description:
+      "The end state is the constructor value, not an arbitrary ceiling.",
+    evaluate: (summary, params) => {
+      const applied = rampSteps(summary)
+      const last = applied[applied.length - 1]
+      return compare(last?.value, number(params, "value"), (a, e) => a === e)
+    },
+  },
+  rampConflictsAtMost: {
+    name: "rampConflictsAtMost",
+    claim: (params) =>
+      `at most ${number(params, "value")} ramp write(s) lost the CAS race`,
+    description:
+      "Every replica may drive the ramp; a conflict proves the CAS, a storm proves a fight.",
+    evaluate: (summary, params) =>
+      compare(
+        summary.ramp?.conflicts,
+        number(params, "value"),
+        (a, e) => a <= e,
+      ),
+  },
+  rampWitnessPeakAtMostStepLimit: {
+    name: "rampWitnessPeakAtMostStepLimit",
+    claim: (params) =>
+      `during every ramp step the dependency stayed within the limit in force (+${typeof params.tolerance === "number" ? params.tolerance : 0})`,
+    description:
+      "The witness decides: the ceiling the ramp wrote is the ceiling the dependency saw.",
+    evaluate: (summary, params) => {
+      const applied = [...rampSteps(summary)].sort((l, r) => l.at - r.at)
+      const samples = summary.ramp?.samples ?? []
+      const tolerance =
+        typeof params.tolerance === "number" ? params.tolerance : 0
+      // In-flight calls admitted under the previous limit take time to drain.
+      const settle = typeof params.settleMs === "number" ? params.settleMs : 250
+      if (applied.length === 0 || samples.length === 0)
+        return {
+          expected: "steps and witness samples",
+          actual: MISSING,
+          passed: false,
+        }
+      const violations: string[] = []
+      let windows = 0
+      for (const [index, step] of applied.entries()) {
+        const next = applied[index + 1]?.at ?? Number.POSITIVE_INFINITY
+        const inWindow = samples.filter(
+          (sample) => sample.at >= step.at + settle && sample.at < next,
+        )
+        if (inWindow.length === 0) continue
+        windows += 1
+        const peak = Math.max(...inWindow.map((sample) => sample.inFlight))
+        if (peak > step.value + tolerance)
+          violations.push(`${step.value}: saw ${peak}`)
+      }
+      if (windows === 0)
+        return { expected: "a sampled window", actual: MISSING, passed: false }
+      return {
+        expected: `<= limit in force (+${tolerance})`,
+        actual: violations.length ? violations.join(", ") : "within",
+        passed: violations.length === 0,
+        detail: `${windows} window(s) sampled`,
       }
     },
   },

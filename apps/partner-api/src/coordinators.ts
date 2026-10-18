@@ -8,8 +8,10 @@ import type {
   SettleProbeResult,
 } from "@gkoos/caracal"
 import {
+  type ConfigurationManager,
   createCoordinationClient,
   redisCircuitBreakerCoordinator,
+  redisConfigurationManager,
   redisCoordinator,
   redisRateLimitCoordinator,
 } from "@gkoos/caracal/redis"
@@ -51,8 +53,12 @@ export type CoordinatorSet = {
   bulkhead: BulkheadCoordinator
   breaker: BreakerCoordinator
   rateLimit: RateLimitCoordinator
+  /** The configuration manager for the default coordinator. */
+  configuration: ConfigurationManager
   /** Regions that have their own coordinator, from `REDIS_URL_REGION_*`. */
   regionCoordinators: string[]
+  /** Selects the manager for a resolved scope, mirroring the coordinator routing. */
+  configurationFor(scope: string): ConfigurationManager
   connect(): Promise<void>
   disconnect(): void
 }
@@ -142,6 +148,7 @@ export function createCoordinators(
       bulkhead: BulkheadCoordinator
       breaker: BreakerCoordinator
       rateLimit: RateLimitCoordinator
+      configuration: ConfigurationManager
     }
   >()
 
@@ -154,6 +161,7 @@ export function createCoordinators(
       bulkhead: redisCoordinator(scripted, { namespace }),
       breaker: redisCircuitBreakerCoordinator(scripted, { namespace }),
       rateLimit: redisRateLimitCoordinator(scripted, { namespace }),
+      configuration: redisConfigurationManager(scripted, { namespace }),
     })
   }
 
@@ -213,6 +221,10 @@ export function createCoordinators(
         ) as Promise<SettleProbeResult>
       },
     },
+    configurationFor(scope: string) {
+      return regionFor(scope).configuration
+    },
+    configuration: regionFor("global").configuration,
     rateLimit: {
       command(
         identity: { name: string; operation: string; scope: string },

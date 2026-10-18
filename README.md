@@ -29,8 +29,9 @@ Case studies that run the same workload against the same dependency, move the co
 | [`13 · rate vs concurrency`](case-studies/13-rate-vs-concurrency/README.md) | the axis | rate 100/s at 200ms latency → **~20 in flight** (a rate limit is not a concurrency ceiling) |
 | [`14 · burst and retry-after`](case-studies/14-rate-burst-retry-after/README.md) | the knob | `burst: 20` admits a cluster, then 50/s sheds the surplus with a `retry-after` hint |
 | [`15 · per-tenant rate quota`](case-studies/15-rate-tenant-quota/README.md) | the tenant | 50 tenants, one noisy → the noisy tenant's rate is capped, the other 49 unaffected |
+| [`16 · recovery ramp`](case-studies/16-recovery-ramp/README.md) | the comeback | the breaker closes → the app ramps the shared limit **1 → 2 → 4 → 8**; the dependency's peak tracks each step |
 
-Each number above is read from the most independent instrument available: the dependency's own counters (`01`, `02`, `08`), caracal's events for breaker and permit claims (`03`–`05`), the client's own timings (`06`), and Redis's own lease count (`07`). Three of those instruments are not caracal at all: the dependency's counters, the client's clocks, and Redis's own lease state. Where a claim can only be reported by caracal - which breaker opened, how many permits are live - the study says so rather than implying it was independently measured.
+Each number above is read from the most independent instrument available: the dependency's own counters (`01`, `02`, `08`), caracal's events for breaker and permit claims (`03`–`05`), the client's own timings (`06`), and Redis's own lease count (`07`). Three of those instruments are not caracal at all: the dependency's counters, the client's clocks, and Redis's own lease state. Where a claim can only be reported by caracal - which breaker opened, how many permits are live - the study says so rather than implying it was independently measured. `16` adds a fourth: the application's own ramp log, checked step by step against the dependency's in-flight timeline.
 
 ## Run it
 
