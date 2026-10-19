@@ -19,6 +19,8 @@
     "stack:reset": "node scripts/stack.mjs reset",
     "stack:ps": "node scripts/stack.mjs ps",
     "stack:logs": "node scripts/stack.mjs logs",
+    "aws:up": "node scripts/stack.mjs up --profile aws",
+    "aws:down": "node scripts/stack.mjs down",
     "smoke": "node --import tsx scripts/smoke.mjs",
     "smoke:distributed": "node --import tsx scripts/smoke.mjs --topology=distributed",
     "smoke:breaker": "node --import tsx scripts/smoke.mjs --failure-rate=0.6 --retry-attempts=1",
@@ -38,7 +40,7 @@
     "link:npm": "node scripts/link-local.mjs npm"
   },
   "dependencies": {
-    "@gkoos/caracal": "0.10.0",
+    "@gkoos/caracal": "0.11.0",
     "@opentelemetry/api": "^1.9.1",
     "@opentelemetry/exporter-metrics-otlp-http": "^0.222.0",
     "@opentelemetry/exporter-trace-otlp-http": "^0.222.0",

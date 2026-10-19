@@ -16,9 +16,15 @@
  */
 import {
   createServer,
+  request as httpRequest,
   type IncomingMessage,
   type ServerResponse,
 } from "node:http"
+import {
+  CreateQueueCommand,
+  GetQueueAttributesCommand,
+  SQSClient,
+} from "@aws-sdk/client-sqs"
 
 type Behavior = {
   latencyMs: number
@@ -42,6 +48,13 @@ const port = Number(process.env.PORT ?? 4200)
 // The dependency's real ceiling: beyond this many in-flight requests it refuses
 // new ones (503) rather than degrading. 0 means no ceiling (the default).
 const capacity = Number(process.env.CAPACITY ?? 0)
+// When UPSTREAM_URL is set the mock becomes a transparent proxy in front of it.
+// That is how the AWS study puts the witness between the SDK and Floci.
+const upstreamUrl = process.env.UPSTREAM_URL || undefined
+const failAfterUpstream = Number(process.env.FAIL_AFTER_UPSTREAM ?? 0)
+const failTarget = process.env.FAIL_TARGET ?? "SendMessage"
+const queueName = process.env.AWS_QUEUE_NAME
+const awsDirectUrl = process.env.AWS_DIRECT_URL || upstreamUrl
 const behavior: Behavior = {
   latencyMs: Number(process.env.LATENCY_MS ?? 30),
   failureRate: Number(process.env.FAILURE_RATE ?? 0),
@@ -68,6 +81,26 @@ const samples: { at: number; inFlight: number }[] = []
 // dependency's own instantaneous arrival rate. This is the rate-axis witness, the
 // complement of `peakInFlight` on the concurrency axis.
 const arrivalTimes: number[] = []
+
+let failAfterRemaining = failAfterUpstream
+const queueClient =
+  queueName && awsDirectUrl
+    ? new SQSClient({
+        endpoint: awsDirectUrl,
+        region: process.env.AWS_REGION ?? "us-east-1",
+        maxAttempts: 1,
+        credentials: { accessKeyId: "test", secretAccessKey: "test" },
+      })
+    : undefined
+let queueUrl: string | undefined
+
+async function ensureQueue(): Promise<void> {
+  if (!queueClient || queueName === undefined) return
+  const created = await queueClient.send(
+    new CreateQueueCommand({ QueueName: queueName }),
+  )
+  queueUrl = created.QueueUrl
+}
 
 // A timeline of in-flight samples, timed on this process's own clock, so a panel
 // can draw the exact concurrency curve the bulkhead was supposed to flatten.
@@ -137,6 +170,11 @@ async function work(
     typeof tenant === "string" && behavior.hangTenants.includes(tenant)
 
   try {
+    if (upstreamUrl !== undefined) {
+      await proxyToUpstream(request, response, scope, started)
+      return
+    }
+
     if (regionHanging || tenantHanging || Math.random() < behavior.hangRate) {
       // A hung request holds the connection open until the client aborts (a
       // timeout or a bulkhead lease) - or forever. It never responds.
@@ -215,6 +253,106 @@ async function respond(
   })
 }
 
+function sendAwsError(response: ServerResponse, status = 500): void {
+  const body = JSON.stringify({
+    __type: "InternalServerException",
+    message: "injected after the upstream accepted the request",
+  })
+  response.writeHead(status, {
+    "content-type": "application/x-amz-json-1.0",
+    "x-amzn-errortype": "InternalServerException",
+    "content-length": Buffer.byteLength(body),
+  })
+  response.end(body)
+}
+
+/**
+ * Forwards one request to `UPSTREAM_URL`, counting it as the dependency did.
+ * `FAIL_AFTER_UPSTREAM` fails the first matching requests *after* the upstream
+ * accepted them, which is the lost-response case a retry must not repeat.
+ */
+async function proxyToUpstream(
+  request: IncomingMessage,
+  response: ServerResponse,
+  scope: string,
+  started: number,
+): Promise<void> {
+  const target = new URL(upstreamUrl as string)
+  const targetHeader = String(request.headers["x-amz-target"] ?? "")
+  const outbound = httpRequest(
+    {
+      hostname: target.hostname,
+      port: target.port,
+      path: request.url ?? "/",
+      method: request.method,
+      headers: request.headers,
+    },
+    (upstreamResponse) => {
+      const status = upstreamResponse.statusCode ?? 502
+      const failThis =
+        failAfterRemaining > 0 &&
+        targetHeader.includes(failTarget) &&
+        status < 400
+      if (failThis) {
+        failAfterRemaining -= 1
+        upstreamResponse.resume()
+        upstreamResponse.on("end", () => {
+          failures += 1
+          requestsByStatus["500"] = (requestsByStatus["500"] ?? 0) + 1
+          sendAwsError(response)
+        })
+        return
+      }
+
+      requestsByStatus[String(status)] =
+        (requestsByStatus[String(status)] ?? 0) + 1
+      response.writeHead(status, upstreamResponse.headers)
+      upstreamResponse.pipe(response)
+    },
+  )
+  outbound.on("error", () => {
+    failures += 1
+    if (!response.headersSent) {
+      json(response, 502, {
+        error: "upstream-error",
+        scope,
+        tookMs: Date.now() - started,
+      })
+    } else {
+      response.destroy()
+    }
+  })
+  response.on("close", () => {
+    if (!response.writableEnded) abandoned += 1
+  })
+  request.pipe(outbound)
+}
+
+/** The standard witness plus the queue's own message count, when configured. */
+async function witnessWithQueue() {
+  const base = witness()
+  if (!queueClient || queueUrl === undefined) return base
+  try {
+    const attributes = await queueClient.send(
+      new GetQueueAttributesCommand({
+        QueueUrl: queueUrl,
+        AttributeNames: ["ApproximateNumberOfMessages"],
+      }),
+    )
+    return {
+      ...base,
+      aws: {
+        messages: Number(
+          attributes.Attributes?.ApproximateNumberOfMessages ?? 0,
+        ),
+        queue: queueName,
+      },
+    }
+  } catch {
+    return { ...base, aws: { queue: queueName } }
+  }
+}
+
 function prometheus(): string {
   const lines: string[] = [
     "# HELP downstream_inflight Requests currently in flight, by scope.",
@@ -266,6 +404,7 @@ function reset(): void {
   inFlight = 0
   peak = 0
   peakRps = 0
+  failAfterRemaining = failAfterUpstream
   arrivalTimes.length = 0
   inFlightByScope.clear()
   for (const key of Object.keys(peakByScope)) delete peakByScope[key]
@@ -289,7 +428,9 @@ const server = createServer((request, response) => {
     return
   }
   if (url.pathname === "/_witness") {
-    json(response, 200, witness())
+    void witnessWithQueue()
+      .then((value) => json(response, 200, value))
+      .catch(() => json(response, 200, witness()))
     return
   }
   if (url.pathname === "/_witness/timeline") {
@@ -344,6 +485,11 @@ const server = createServer((request, response) => {
     return
   }
 
+  if (upstreamUrl !== undefined) {
+    void work(request, response)
+    return
+  }
+
   if (request.method === "POST" && url.pathname === "/orders") {
     void work(request, response)
     return
@@ -358,6 +504,7 @@ const server = createServer((request, response) => {
   json(response, 404, { error: "not found" })
 })
 
+await ensureQueue()
 server.listen(port, () => {
   console.log(
     `downstream-mock on :${port} (latency ${behavior.latencyMs}ms, failureRate ${behavior.failureRate})`,

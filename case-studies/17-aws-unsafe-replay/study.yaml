@@ -1,0 +1,42 @@
+# Retry refuses to replay an accepted SQS send.
+#
+# The dependency is Floci behind the downstream witness. The witness forwards a
+# SendMessage to Floci - the queue accepts it - then reports a lost response.
+# Caracal's retry must decline the replay because the AWS adapter declares
+# SendMessage unsafe.
+#
+#   npm run aws:up
+#   npm run demo 17
+id: "17-aws-unsafe-replay"
+title: "Retry refuses to replay an accepted SQS send"
+question: "When the response is lost after AWS accepted the send, does retry send it twice?"
+
+topology:
+  policies: local
+  scope: global
+  replicas: 1
+  env:
+    RETRY_MAX_ATTEMPTS: "3"
+    POLICY_TIMEOUT_MS: "5000"
+    BREAKER_MINIMUM_THROUGHPUT: "1000"   # keep the breaker out of this story
+
+scenario:
+  durationMs: 8000
+  concurrency: 2
+  targetRps: 40
+  seed: 1
+  operations:
+    - { name: "aws.send", method: POST, path: "/aws/send", weight: 1 }
+  dependency:
+    upstream: "http://127.0.0.1:4566"
+    failAfterUpstream: 1         # accepted by Floci, then the response is lost
+
+checks:
+  - { name: witnessPresent }
+  - { name: requestsAtLeast, params: { value: 20 } }
+  # The adapter declared SendMessage unsafe, so retry declined the replay.
+  - { name: retriesDeclinedAtLeast, params: { value: 1 } }
+  - { name: eventCountAtLeast, params: { type: "retry.declined", value: 1 } }
+  # The second witness: the queue itself. One message per call means the failed
+  # call was accepted exactly once, and no retry added a duplicate.
+  - { name: witnessMessagesPerCallAtMost, params: { value: 1 } }

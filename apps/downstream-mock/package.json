@@ -3,5 +3,8 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "The flaky dependency every demo calls - and the witness that measures itself."
+  "description": "The flaky dependency every demo calls - and the witness that measures itself.",
+  "dependencies": {
+    "@aws-sdk/client-sqs": "^3.1153.0"
+  }
 }

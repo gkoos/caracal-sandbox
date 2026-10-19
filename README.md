@@ -30,6 +30,7 @@ Case studies that run the same workload against the same dependency, move the co
 | [`14 · burst and retry-after`](case-studies/14-rate-burst-retry-after/README.md) | the knob | `burst: 20` admits a cluster, then 50/s sheds the surplus with a `retry-after` hint |
 | [`15 · per-tenant rate quota`](case-studies/15-rate-tenant-quota/README.md) | the tenant | 50 tenants, one noisy → the noisy tenant's rate is capped, the other 49 unaffected |
 | [`16 · recovery ramp`](case-studies/16-recovery-ramp/README.md) | the comeback | the breaker closes → the app ramps the shared limit **1 → 2 → 4 → 8**; the dependency's peak tracks each step |
+| [`17 · AWS unsafe replay`](case-studies/17-aws-unsafe-replay/README.md) | the command | an accepted SQS send whose response is lost is not replayed: **one message per call**, not two |
 
 Each number above is read from the most independent instrument available: the dependency's own counters (`01`, `02`, `08`), caracal's events for breaker and permit claims (`03`–`05`), the client's own timings (`06`), and Redis's own lease count (`07`). Three of those instruments are not caracal at all: the dependency's counters, the client's clocks, and Redis's own lease state. Where a claim can only be reported by caracal - which breaker opened, how many permits are live - the study says so rather than implying it was independently measured. `16` adds a fourth: the application's own ramp log, checked step by step against the dependency's in-flight timeline.
 
@@ -43,6 +44,8 @@ npm run verify:api   # the installed caracal surface matches what the sandbox ex
 npm run stack:up     # Valkey, Postgres, otel-collector, Jaeger, Prometheus, Grafana
 npm run smoke        # the whole chain: pipeline → events → OTLP → dashboards
 ```
+
+Study 17 needs the AWS dependency as well: `npm run aws:up` starts the core stack plus Floci on `:4566`. No AWS account is involved; Floci uses the demo's `test`/`test` credentials.
 
 Then open Grafana at <http://localhost:3000/d/caracal-overview> and Jaeger at <http://localhost:16686>. Tear the stack down with `npm run stack:down`.
 
@@ -89,6 +92,7 @@ Building the sandbox surfaced a few non-obvious traps: a dead collector that fai
 
 ```text
 apps/partner-api/              # THE workload. Topology is configuration, not code
+apps/downstream-mock/          # the dependency + witness (and, for 17, the AWS proxy)
 packages/caracal-observability # caracal events → OTLP traces + metrics (+ ndjson)
 packages/caracal-runner/       # summary schema, named checks, compare/report
 stack/                         # valkey, valkey-eu, postgres, otel, jaeger, prometheus, grafana

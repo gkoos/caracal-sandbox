@@ -97,11 +97,11 @@ function caption(x, y, text) {
   return `<text x="${x}" y="${y}" text-anchor="middle" fill="${P.muted}" font-size="10.5" font-style="italic" font-family="${FONT}">${esc(text)}</text>`
 }
 
-function svg(w, h, body) {
+function svg(w, h, body, title = "caracal demo — topology") {
   return [
     `<?xml version="1.0" encoding="UTF-8"?>`,
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" font-family="${FONT}" role="img">`,
-    `<title>caracal demo — topology</title>`,
+    `<title>${esc(title)}</title>`,
     `<rect width="${w}" height="${h}" fill="${P.paper}"/>`,
     `<defs><marker id="arrowhead" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="${P.arrow}"/></marker></defs>`,
     body,
@@ -131,7 +131,16 @@ function replicaStack(
 }
 
 // Shared scaffold for the request-flow diagrams: replicas, loadgen, downstream.
-function scaffold(parts, { replicasSub, loadgenSub, replicas = 4 }) {
+function scaffold(
+  parts,
+  {
+    replicasSub,
+    loadgenSub,
+    replicas = 4,
+    downstreamTitle = "downstream-mock",
+    downstreamSub = "the dependency",
+  },
+) {
   replicaStack(parts, { n: replicas, sub: replicasSub })
   parts.push(
     node({
@@ -152,15 +161,15 @@ function scaffold(parts, { replicasSub, loadgenSub, replicas = 4 }) {
       w: 190,
       h: 56,
       fill: P.downstream,
-      title: "downstream-mock",
-      sub: "the dependency",
+      title: downstreamTitle,
+      sub: downstreamSub,
     }),
   )
   for (let i = 0; i < replicas; i += 1)
     parts.push(arrow(345, 42 + i * 58, 558, 125 + i * 14))
 }
 
-function valkeyNode(parts, sub) {
+function valkeyNode(parts, sub, label) {
   parts.push(
     node({
       x: 180,
@@ -172,11 +181,48 @@ function valkeyNode(parts, sub) {
       sub,
     }),
   )
-  parts.push(arrow(262.5, 238, 262.5, 262))
+  parts.push(arrow(262.5, 238, 262.5, 262, label ? { label } : {}))
 }
 
 function witnessUnder(parts, label) {
   parts.push(witness(655, 174, 655, 198, label))
+}
+
+/** The recovery ramp: the shared limit as a step chart, one step per revision. */
+function rampChart(parts) {
+  const axis = "#d8d8d8"
+  parts.push(
+    `<text x="490" y="252" fill="${P.muted}" font-size="10.5" font-style="italic" font-family="${FONT}">the record, per revision</text>`,
+    `<line x1="488" y1="341" x2="742" y2="341" stroke="${axis}" stroke-width="1"/>`,
+  )
+  const steps = [
+    [490, 335, 530, 335],
+    [530, 335, 530, 315],
+    [530, 315, 570, 315],
+    [570, 315, 570, 295],
+    [570, 295, 610, 295],
+    [610, 295, 610, 275],
+    [610, 275, 742, 275],
+  ]
+  for (const [x1, y1, x2, y2] of steps) {
+    parts.push(
+      `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${P.brand}" stroke-width="2.4"/>`,
+    )
+  }
+  for (const [y, value] of [
+    [339, "1"],
+    [319, "2"],
+    [299, "4"],
+    [279, "8"],
+  ]) {
+    parts.push(
+      `<text x="482" y="${y}" text-anchor="end" fill="${P.muted}" font-size="10.5" font-family="${FONT}">${value}</text>`,
+    )
+  }
+  parts.push(
+    `<text x="530" y="358" text-anchor="middle" fill="${P.muted}" font-size="10" font-family="${FONT}">start</text>`,
+    `<text x="742" y="358" text-anchor="end" fill="${P.muted}" font-size="10" font-family="${FONT}">t+3s · baseline</text>`,
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -581,6 +627,60 @@ const scenes = {
       ),
     )
     return svg(780, 360, parts.join("\n"))
+  },
+
+  "16-recovery-ramp"() {
+    const parts = []
+    scaffold(parts, {
+      replicas: 4,
+      replicasSub: (i) => `replica ${i} · ramp controller`,
+      loadgenSub: "200 req/s",
+    })
+    valkeyNode(
+      parts,
+      "shared configuration · limit + revision",
+      "read / CAS update",
+    )
+    witnessUnder(parts, "witness: peak = limit in force")
+    rampChart(parts)
+    parts.push(
+      caption(
+        390,
+        386,
+        "on close the app walks the shared limit 1 → 2 → 4 → 8; the dependency's peak follows, step by step",
+      ),
+    )
+    return svg(
+      780,
+      400,
+      parts.join("\n"),
+      "caracal demo — recovery ramp topology",
+    )
+  },
+
+  "17-aws-unsafe-replay"() {
+    const parts = []
+    scaffold(parts, {
+      replicas: 1,
+      replicasSub: () => "replica · awsSdkAdapter · SendMessage",
+      loadgenSub: "POST /aws/send",
+      downstreamTitle: "downstream-mock → Floci",
+      downstreamSub: "witness + proxy",
+    })
+    witnessUnder(parts, "witness: 1 message per call")
+    parts.push(
+      caption(
+        390,
+        345,
+        "the response is lost after Floci accepted the send; retry declines the replay",
+      ),
+    )
+    return svg(
+      780,
+      360,
+      parts.join("\n"),
+      "caracal demo — AWS unsafe replay topology",
+    )
   },
 }
 

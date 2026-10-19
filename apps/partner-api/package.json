@@ -8,6 +8,7 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-sqs": "^3.1153.0",
     "caracal-observability": "*",
     "caracal-runner": "*"
   },

@@ -48,6 +48,7 @@ const redisModule = await import("@gkoos/caracal/redis")
 const fetchModule = await import("@gkoos/caracal/fetch")
 const postgresModule = await import("@gkoos/caracal/postgres")
 const testingModule = await import("@gkoos/caracal/testing")
+const awsSdkModule = await import("@gkoos/caracal/aws-sdk")
 
 console.log(`@gkoos/caracal@${installed.version} (pinned: ${pinned})`)
 check(
@@ -107,6 +108,11 @@ checkExports("@gkoos/caracal/testing", testingModule, {
   defineAdapterContractSuite: "function",
   runAdapterContractSuite: "function",
   createScriptedAdapter: "function",
+})
+
+checkExports("@gkoos/caracal/aws-sdk", awsSdkModule, {
+  awsSdkAdapter: "function",
+  awsSdkErrorClassification: "function",
 })
 
 // Existing is not the same as working: build one pipeline of each coordination
@@ -220,6 +226,29 @@ check(
         event.type === "retry.declined" && event.reason === "replay-unsafe",
     ),
   `${unsafe.calls.length} call(s), ${unsafeEvents.map((event) => event.type).join(",")}`,
+)
+
+class GetItemCommand {}
+class SendMessageCommand {}
+const awsRead = awsSdkModule.awsSdkAdapter({
+  client: { send: async () => "ok" },
+  command: () => new GetItemCommand(),
+})
+check(
+  "aws adapter declares abort support",
+  awsRead.capabilities({}).abort === "supported",
+)
+check(
+  "aws adapter derives safe replay for GetItem",
+  awsRead.capabilities({}).replay === "safe",
+)
+const awsSend = awsSdkModule.awsSdkAdapter({
+  client: { send: async () => "ok" },
+  command: () => new SendMessageCommand(),
+})
+check(
+  "aws adapter marks SendMessage unsafe",
+  awsSend.capabilities({}).replay === "unsafe",
 )
 
 if (failures.length > 0) {

@@ -5,9 +5,18 @@ import {
   RateLimitExceededError,
   operation,
 } from "@gkoos/caracal"
+import {
+  awsSdkAdapter,
+  awsSdkErrorClassification,
+} from "@gkoos/caracal/aws-sdk"
 import { fetchAdapter } from "@gkoos/caracal/fetch"
 import { postgresAdapter } from "@gkoos/caracal/postgres"
+import {
+  SendMessageCommand,
+  type SendMessageCommandOutput,
+} from "@aws-sdk/client-sqs"
 import type { QueryResult } from "pg"
+import type { AwsQueue } from "./aws.js"
 import type { PolicySet } from "./policies.js"
 
 /**
@@ -30,12 +39,16 @@ export type PostgresCall = {
   replay?: "safe" | "unsafe" | "unknown"
 }
 
+export type AwsSendCall = { body: string }
+
 export type PartnerOperations = {
   ordersGet: Operation<DownstreamCall, Response>
   ordersCreate: Operation<DownstreamCall, Response>
   partnerCall: Operation<DownstreamCall, Response>
   /** Present only when a PostgreSQL pool was configured. */
   reportRun: Operation<PostgresCall, QueryResult> | undefined
+  /** Present only when an AWS queue was configured. */
+  awsSend: Operation<AwsSendCall, SendMessageCommandOutput> | undefined
   /** Maps a request line to the operation that should serve it. */
   forPath(
     method: string,
@@ -55,6 +68,7 @@ export function buildOperations(
   policies: PolicySet,
   events?: EventSinks,
   pool?: PostgresQueryable,
+  aws?: AwsQueue,
 ): PartnerOperations {
   const adapter = fetchAdapter({
     // A bulkhead or rate-limit rejection is the policy shedding, not the
@@ -88,6 +102,29 @@ export function buildOperations(
     events,
   })
 
+  const awsSend = aws
+    ? operation<AwsSendCall, SendMessageCommandOutput>({
+        name: "aws.send",
+        adapter: awsSdkAdapter({
+          client: aws.client,
+          command: (args: AwsSendCall) =>
+            new SendMessageCommand({
+              QueueUrl: aws.queueUrl,
+              MessageBody: args.body,
+            }),
+          // Same finding-3 rule as fetch/postgres: shedding is the policy, not
+          // the dependency, so it must not be counted against the breaker.
+          classifyError: (error) =>
+            error instanceof BulkheadRejectedError ||
+            error instanceof RateLimitExceededError
+              ? "ignored"
+              : awsSdkErrorClassification(error),
+        }),
+        policies: policies.policies,
+        events,
+      })
+    : undefined
+
   const reportRun = pool
     ? operation<PostgresCall, QueryResult>({
         name: "report.run",
@@ -111,6 +148,7 @@ export function buildOperations(
     ordersCreate,
     partnerCall,
     reportRun,
+    awsSend,
     forPath(method, path) {
       if (method === "POST" && path === "/orders") return ordersCreate
       if (path.startsWith("/orders/")) return ordersGet

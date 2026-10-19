@@ -575,6 +575,29 @@ export const CHECKS: Record<string, CheckDefinition> = {
         (a, e) => a >= e,
       ),
   },
+  witnessMessagesPerCallAtMost: {
+    name: "witnessMessagesPerCallAtMost",
+    claim: (params) =>
+      `the dependency accepted at most ${number(params, "value")} message(s) per call`,
+    description:
+      "A replayed send would put more messages in the queue than the caller issued.",
+    evaluate: (summary, params) => {
+      const messages = summary.witness?.aws?.messages
+      if (messages === undefined) {
+        return {
+          expected: `<= ${number(params, "value")}`,
+          actual: MISSING,
+          passed: false,
+        }
+      }
+      const calls = Math.max(1, summary.client.requests)
+      return compare(
+        Number((messages / calls).toFixed(3)),
+        number(params, "value"),
+        (a, e) => a <= e,
+      )
+    },
+  },
   successRateAtMost: {
     name: "successRateAtMost",
     claim: (params) =>

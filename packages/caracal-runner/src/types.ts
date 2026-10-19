@@ -63,6 +63,11 @@ export type WitnessView = {
   abandoned?: number
   /** The dependency's configured ceiling, when it has one. */
   capacity?: number
+  /** AWS-specific witness: the queue's own view of what was accepted. */
+  aws?: {
+    messages?: number
+    queue?: string
+  }
 }
 
 export type CaracalView = {

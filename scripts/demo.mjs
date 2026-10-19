@@ -297,6 +297,9 @@ const replicas = Number(demo.topology.replicas ?? 1)
 const env = demo.topology.env ?? {}
 const downstreamUrl = `http://127.0.0.1:${DOWNSTREAM_PORT}`
 const dependency = demo.scenario.dependency ?? {}
+const awsQueueName = dependency.upstream
+  ? `caracal-demo-${runId.replace(/[^A-Za-z0-9_-]/g, "-")}`
+  : undefined
 
 spawnProcess(
   "downstream-mock",
@@ -313,6 +316,16 @@ spawnProcess(
     HANG_TENANTS: (dependency.hangTenants ?? []).join(","),
     BODY_DELAY_MS: String(dependency.bodyDelayMs ?? 0),
     CAPACITY: String(dependency.capacity ?? 0),
+    ...(dependency.upstream
+      ? {
+          UPSTREAM_URL: dependency.upstream,
+          AWS_DIRECT_URL: dependency.upstream,
+          AWS_QUEUE_NAME: awsQueueName,
+          AWS_REGION: dependency.region ?? "us-east-1",
+          FAIL_AFTER_UPSTREAM: String(dependency.failAfterUpstream ?? 0),
+          FAIL_TARGET: dependency.failTarget ?? "SendMessage",
+        }
+      : {}),
   },
   downstreamUrl,
 )
@@ -345,6 +358,13 @@ for (let index = 0; index < replicas; index += 1) {
       // One ramp log per replica: every replica runs a controller, so the merged
       // file is the history of the race, not of a single writer.
       RAMP_FILE: `${runDirectory}/ramp-${index}.ndjson`,
+      ...(awsQueueName
+        ? {
+            AWS_ENDPOINT_URL: downstreamUrl,
+            AWS_QUEUE_NAME: awsQueueName,
+            AWS_REGION: dependency.region ?? "us-east-1",
+          }
+        : {}),
     },
     `http://127.0.0.1:${port}`,
   )

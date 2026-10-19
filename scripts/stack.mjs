@@ -5,6 +5,7 @@
  *   node scripts/stack.mjs up                    # core: valkey, valkey-eu, postgres, otel, jaeger, prometheus, grafana
  *   node scripts/stack.mjs up --profile chaos    # + toxiproxy
  *   node scripts/stack.mjs up --profile cluster  # + three-master Valkey cluster
+ *   node scripts/stack.mjs up --profile aws      # + Floci, the AWS dependency
  *   node scripts/stack.mjs down | reset | ps | logs | config
  *
  * Workloads are not part of this stack: partner-api replicas, the load generator
@@ -76,6 +77,9 @@ if (status === 0 && command === "up") {
     ? "  Toxiproxy   control http://localhost:8474, proxy redis://127.0.0.1:6380\n"
     : ""
   if (extra) process.stdout.write(extra)
+  if (profiles.includes("aws")) {
+    process.stdout.write("  Floci       http://localhost:4566\n")
+  }
 }
 
 process.exit(status)

@@ -1,0 +1,157 @@
+{
+  "schema": 1,
+  "runId": "2026-10-19T22-34-01-291_17-aws-unsafe-replay",
+  "demo": "17-aws-unsafe-replay",
+  "title": "Retry refuses to replay an accepted SQS send",
+  "startedAt": "2026-10-19T22:34:01.291Z",
+  "finishedAt": "2026-10-19T22:34:01.291Z",
+  "library": {
+    "version": "0.11.0",
+    "source": "npm"
+  },
+  "topology": {
+    "policies": "local",
+    "scope": "global",
+    "config": {
+      "topology": "local",
+      "scope": "global",
+      "namespace": "caracal-demo:2026-10-19T22-33-48-245_17-aws-unsafe-replay",
+      "scope label": "on",
+      "onCoordinatorError": "fail-open",
+      "bulkhead limit": 5,
+      "bulkhead lease": "5000ms",
+      "queue": "none (immediate reject)",
+      "rate limit": "off",
+      "breaker minimum throughput": 1000,
+      "breaker failure threshold": 0.5,
+      "breaker open": "5000ms",
+      "breaker half-open probes": 3,
+      "breaker probe lease": "10000ms",
+      "timeout": "5000ms",
+      "retry attempts": 3,
+      "redis command timeout": "1000ms",
+      "ramp": "off"
+    }
+  },
+  "workload": {
+    "durationMs": 8000,
+    "concurrency": 2,
+    "replicas": 1,
+    "byOperation": {
+      "aws.send": 321
+    }
+  },
+  "client": {
+    "requests": 321,
+    "success": 320,
+    "failure": 0,
+    "refusedByReason": {
+      "error": 1
+    },
+    "timedOut": 0,
+    "latencyMs": {
+      "p50": 5,
+      "p95": 6,
+      "p99": 9,
+      "max": 16
+    },
+    "rps": 40
+  },
+  "caracal": {
+    "executionsByOutcome": {
+      "failure": 1,
+      "success": 320
+    },
+    "attemptsByClassification": {
+      "retryable": 1,
+      "success": 320
+    },
+    "eventsByType": {
+      "execution.started": 321,
+      "bulkhead.admitted": 321,
+      "attempt.started": 321,
+      "attempt.settled": 321,
+      "bulkhead.released": 321,
+      "retry.declined": 1,
+      "breaker.observation": 321,
+      "execution.settled": 321
+    },
+    "breakerStateChanges": {},
+    "breakerOpens": 0,
+    "breakerOpensByScope": {},
+    "breakerRejectionsByState": {},
+    "bulkheadRejectionsByReason": {},
+    "bulkheadRejectionsByScope": {},
+    "rateLimitAdmitted": 0,
+    "rateLimitRejectionsByReason": {},
+    "rateLimitRejectionsByScope": {},
+    "rateLimitRetryAfterMaxMs": 0,
+    "peakProbesInFlightByScope": {},
+    "leaseLost": 0,
+    "degraded": 0,
+    "staleObservations": 0,
+    "coordinatorErrors": 0,
+    "retriesScheduled": 0,
+    "retriesDeclined": 1,
+    "timeoutsTriggered": 0,
+    "distinctScopes": 1,
+    "maxPermitHoldMs": 10
+  },
+  "checks": [
+    {
+      "name": "witnessPresent",
+      "claim": "the dependency reported its own concurrency",
+      "expected": "present",
+      "actual": "present",
+      "passed": true
+    },
+    {
+      "name": "requestsAtLeast",
+      "claim": "the run issued at least 20 requests",
+      "expected": "20",
+      "actual": "321",
+      "passed": true
+    },
+    {
+      "name": "retriesDeclinedAtLeast",
+      "claim": "retry declined at least 1 time(s) rather than repeating a call",
+      "expected": "1",
+      "actual": "1",
+      "passed": true
+    },
+    {
+      "name": "eventCountAtLeast",
+      "claim": "the stream contained at least 1 `retry.declined` event(s)",
+      "expected": "1",
+      "actual": "1",
+      "passed": true
+    },
+    {
+      "name": "witnessMessagesPerCallAtMost",
+      "claim": "the dependency accepted at most 1 message(s) per call",
+      "expected": "1",
+      "actual": "1",
+      "passed": true
+    }
+  ],
+  "passed": true,
+  "notes": [
+    "When the response is lost after AWS accepted the send, does retry send it twice?",
+    "runId: 2026-10-19T22-33-48-245_17-aws-unsafe-replay"
+  ],
+  "witness": {
+    "samples": 520,
+    "peakInFlight": 1,
+    "peakRps": 43,
+    "peakByScope": {
+      "global": 1
+    },
+    "requests": 321,
+    "failures": 1,
+    "abandoned": 0,
+    "aws": {
+      "messages": 321,
+      "queue": "caracal-demo-2026-10-19T22-33-48-245_17-aws-unsafe-replay"
+    }
+  }
+}

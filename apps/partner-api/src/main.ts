@@ -8,6 +8,7 @@
  *
  *   node --import tsx apps/partner-api/src/main.ts
  */
+import { randomUUID } from "node:crypto"
 import { appendFileSync, readFileSync, writeFileSync } from "node:fs"
 import {
   createServer,
@@ -32,6 +33,7 @@ import {
   loadConfig,
 } from "./index.js"
 import { buildOperations } from "./operations.js"
+import { openAwsQueue } from "./aws.js"
 import { type RampLine, createRampController } from "./ramp.js"
 
 const CARACAL_VERSION = JSON.parse(
@@ -117,10 +119,20 @@ const ramp =
 // orchestrator to aggregate, OTLP for the dashboards. Without this, the policies
 // would run and the witness would still measure the dependency - but the summary
 // could not say *why* a call was shed.
+const awsQueue =
+  process.env.AWS_ENDPOINT_URL && process.env.AWS_QUEUE_NAME
+    ? await openAwsQueue({
+        endpoint: process.env.AWS_ENDPOINT_URL,
+        queueName: process.env.AWS_QUEUE_NAME,
+        region: process.env.AWS_REGION,
+      })
+    : undefined
+
 const operations = buildOperations(
   policies,
   [events, observability.telemetry.sink(), ...(ramp ? [ramp.sink] : [])],
   pool,
+  awsQueue,
 )
 
 /** A caracal rejection, mapped to an HTTP status a client can tell apart. */
@@ -187,6 +199,25 @@ async function handle(
         },
         { metadata },
       )
+      response.writeHead(200).end()
+    } catch (error) {
+      const mapped = httpStatus(error)
+      response.writeHead(mapped.status, {
+        "x-caracal": mapped.kind,
+        ...(mapped.reason ? { "x-caracal-reason": mapped.reason } : {}),
+      })
+      response.end()
+    }
+    return
+  }
+
+  if (method === "POST" && url.pathname === "/aws/send") {
+    if (!operations.awsSend) {
+      response.writeHead(404).end()
+      return
+    }
+    try {
+      await operations.awsSend.execute({ body: randomUUID() }, { metadata })
       response.writeHead(200).end()
     } catch (error) {
       const mapped = httpStatus(error)
@@ -299,6 +330,7 @@ async function shutdown(): Promise<void> {
   await observability.shutdown()
   coordinators?.disconnect()
   await pool?.end()
+  awsQueue?.client.destroy()
   server.close(() => process.exit(0))
 }
 

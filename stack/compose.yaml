@@ -62,6 +62,17 @@ services:
     tmpfs:
       - /var/lib/postgresql/data
 
+  # The AWS dependency for 17-aws-unsafe-replay. Floci accepts any non-empty
+  # credentials; the demo uses test/test. The `aws` profile keeps it out of the
+  # default stack.
+  floci:
+    image: floci/floci:latest
+    profiles: ["aws"]
+    ports:
+      - "4566:4566"
+    environment:
+      FLOCI_STORAGE_MODE: memory
+
   otel-collector:
     image: otel/opentelemetry-collector-contrib:0.106.1
     command: ["--config=/etc/otelcol-contrib/config.yaml"]
