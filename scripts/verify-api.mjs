@@ -106,6 +106,7 @@ checkExports("@gkoos/caracal/postgres", postgresModule, {
 checkExports("@gkoos/caracal/testing", testingModule, {
   defineAdapterContractSuite: "function",
   runAdapterContractSuite: "function",
+  createScriptedAdapter: "function",
 })
 
 // Existing is not the same as working: build one pipeline of each coordination
@@ -157,6 +158,68 @@ check(
 check(
   "policy objects carry their coordination",
   breaker.coordination === "local" && capacity.coordination === "local",
+)
+
+// The scripted adapter is the sandbox's dependency-free instrument: it answers
+// from a fixed script and records what the runtime asked for, so a policy
+// decision can be asserted exactly. It is also the shape the planned AWS replay
+// study uses, where the failure is a response lost after the work was accepted.
+const scriptedEvents = []
+const scripted = testingModule.createScriptedAdapter({
+  capabilities: { abort: "supported", replay: "safe" },
+  classify: (outcome) =>
+    outcome.status === "failure" ? "retryable" : "success",
+  outcomes: [
+    { status: "failure", error: new Error("transient") },
+    { status: "success", value: "ok" },
+  ],
+})
+const scriptedRun = caracal.operation({
+  name: "verify-scripted",
+  adapter: scripted,
+  policies: [caracal.retry({ maxAttempts: 2 })],
+  events: { emit: (event) => scriptedEvents.push(event) },
+})
+check(
+  "scripted adapter settles a retry",
+  (await scriptedRun.execute(undefined)) === "ok",
+)
+check(
+  "scripted adapter recorded the attempts in order",
+  scripted.calls.map((call) => call.context.attempt).join(",") === "1,2",
+  scripted.calls.map((call) => call.context.attempt).join(","),
+)
+check(
+  "scripted adapter emitted the retry lifecycle",
+  scriptedEvents.filter((event) => event.type === "retry.scheduled").length ===
+    1,
+)
+
+const unsafeEvents = []
+const unsafe = testingModule.createScriptedAdapter({
+  capabilities: { abort: "supported", replay: "unsafe" },
+  classify: (outcome) =>
+    outcome.status === "failure" ? "retryable" : "success",
+  outcomes: [
+    { status: "failure", error: new Error("already applied") },
+    { status: "success", value: "duplicate" },
+  ],
+})
+const unsafeRun = caracal.operation({
+  name: "verify-scripted-unsafe",
+  adapter: unsafe,
+  policies: [caracal.retry({ maxAttempts: 3 })],
+  events: { emit: (event) => unsafeEvents.push(event) },
+})
+await unsafeRun.execute(undefined).catch(() => {})
+check(
+  "scripted adapter proves replay-unsafe declines a retry",
+  unsafe.calls.length === 1 &&
+    unsafeEvents.some(
+      (event) =>
+        event.type === "retry.declined" && event.reason === "replay-unsafe",
+    ),
+  `${unsafe.calls.length} call(s), ${unsafeEvents.map((event) => event.type).join(",")}`,
 )
 
 if (failures.length > 0) {

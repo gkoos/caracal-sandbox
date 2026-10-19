@@ -64,6 +64,7 @@ More things to run:
 | `npm run smoke:overload` | the bulkhead limit is below the offered concurrency: the surplus is shed as `capacity` and the breaker stays closed |
 | `npm run observability` | the sink contract: a throwing/slow-async sink leaves p99 unchanged, a blocking one does not |
 | `CARACAL_OTEL=off npm run smoke` | the event → summary → compare path with no SDK and no stack |
+| `npm run scripted` | the policy decisions themselves from a fixed script: retry, a declined replay, dispose, timeout - no stack required |
 
 ## Watching it in Grafana
 
@@ -93,7 +94,7 @@ packages/caracal-runner/       # summary schema, named checks, compare/report
 stack/                         # valkey, valkey-eu, postgres, otel, jaeger, prometheus, grafana
 case-studies/                  # one case study per folder: study.yaml + README
 runs/                          # artifacts (gitignored): summary.json, report.md, events.ndjson
-scripts/                       # stack, smoke, demo, diagrams, verify-api, link-local, diagnose-otel
+scripts/                       # stack, smoke, scripted-adapter, demo, diagrams, verify-api, link-local, diagnose-otel
 ```
 
 ## Diagrams
@@ -106,10 +107,21 @@ The case studies run against the published package. To test unreleased changes:
 
 ```sh
 npm run link:local    # packs ../caracal and installs the tarball
-npm run link:npm      # back to @gkoos/caracal@0.6.0
+npm run link:npm      # back to @gkoos/caracal@0.10.0
 ```
 
 `npm run verify:api` fails if the surface drifts from what the sandbox uses.
+
+## Policy decisions without a dependency
+
+`createScriptedAdapter` (caracal `0.10.0`) answers each `execute()` from a fixed script and records what the runtime asked for. `npm run scripted` uses it to assert four decisions with no stack, no container and no network:
+
+- retry settles from the second scripted outcome, with the attempt numbers recorded;
+- a `replay: "unsafe"` adapter is not retried, and `retry.declined` reports `replay-unsafe`;
+- the outcome retry abandoned is passed to `dispose` exactly once;
+- a scripted hang is bounded by `timeout` and settles as `TimeoutError`.
+
+The same instrument is what the planned AWS studies use for the claims an emulator cannot produce on demand: a response lost after the work was accepted, a throttling burst, an abandoned response body.
 
 ## Reading the comparison
 
