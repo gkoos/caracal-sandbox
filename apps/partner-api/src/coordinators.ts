@@ -15,6 +15,14 @@ import {
   redisCoordinator,
   redisRateLimitCoordinator,
 } from "@gkoos/caracal/redis"
+import {
+  createServalBreaker,
+  createServalBulkheadCoordinator,
+  createServalRateLimitCoordinator,
+  redisBulkheadAllocationIssuer,
+  redisRateLimitGrantIssuer,
+  type ServalSession,
+} from "@gkoos/caracal/serval"
 import type { Redis } from "ioredis"
 import type { AppConfig } from "./config.js"
 
@@ -61,6 +69,14 @@ export type CoordinatorSet = {
   configurationFor(scope: string): ConfigurationManager
   connect(): Promise<void>
   disconnect(): void
+  /**
+   * Disconnects every coordinator client. With no offline queue, every coordinator
+   * call fails at once - which is what an unreachable coordinator looks like to a
+   * policy. Redis itself keeps its state: this is the outage case, not the
+   * data-loss case that `redis.state-loss` produces.
+   */
+  cut(): void
+  restore(): Promise<void>
 }
 
 const DEFAULT_REGION = "default"
@@ -243,6 +259,106 @@ export function createCoordinators(
     },
     disconnect() {
       for (const region of regions.values()) region.client.disconnect()
+    },
+    cut() {
+      for (const region of regions.values()) region.client.disconnect()
+    },
+    async restore() {
+      await Promise.all(
+        [...regions.values()].map((region) => region.client.connect()),
+      )
+    },
+  }
+}
+
+/**
+ * The delegated fleet: one session per process, and authorities the replicas read
+ * only when their local copy stops being usable.
+ *
+ * The strict coordinators are still here, underneath: the delegated breaker's
+ * authority *is* `redisCircuitBreakerCoordinator`, and the issuers write the same
+ * keys the strict policies do. That is what makes the comparison fair - the
+ * workload, the dependency and the budget are identical; only where the limit
+ * lives changes.
+ */
+export type ServalSet = {
+  namespace: string
+  stats: CoordinationStats
+  /** One session per process: identity, cache, invalidation and reconciliation. */
+  session: ServalSession
+  bulkhead: BulkheadCoordinator
+  breaker: BreakerCoordinator
+  rateLimit: RateLimitCoordinator
+  connect(): Promise<void>
+  disconnect(): Promise<void>
+  /** Disconnects the authority client: the delegated layers then run on what they hold. */
+  cut(): void
+  restore(): Promise<void>
+}
+
+export function createServalCoordinators(
+  config: AppConfig,
+  namespace: string,
+  replicaId: string,
+  observe?: CoordinationObserver,
+): ServalSet {
+  const stats: CoordinationStats = {
+    eval: 0,
+    evalsha: 0,
+    commands: 0,
+    errors: 0,
+  }
+  const client = createCoordinationClient(
+    config.redis.url,
+    config.redis.commandTimeoutMs,
+  )
+  // Every authority read, grant and allocation goes through here, so the cost KPI
+  // counts the delegated path's slow path and not just the strict commands.
+  const scripted = recording(client, stats, observe)
+
+  const { session, coordinator: breaker } = createServalBreaker({
+    namespace,
+    authority: redisCircuitBreakerCoordinator(scripted, { namespace }),
+    replicaId,
+    freshnessMs: config.serval.freshnessMs,
+    reconciliationIntervalMs: config.serval.reconciliationIntervalMs,
+  })
+  // Only the breaker holds a session: the allocation and quota coordinators are
+  // stateless clients over the same Redis, and converge through expiry and their
+  // own replies. The replica's own ceiling is the fleet limit, so demand can grow
+  // into the budget the strict row is given outright.
+  const bulkhead = createServalBulkheadCoordinator({
+    authority: redisBulkheadAllocationIssuer(scripted, { namespace }),
+    replicaId,
+    validityMs: config.serval.validityMs,
+    graceMs: config.serval.graceMs,
+    maximumSlots: config.bulkhead.limit,
+  })
+  const rateLimit = createServalRateLimitCoordinator({
+    authority: redisRateLimitGrantIssuer(scripted, { namespace }),
+    validForMs: config.serval.validityMs,
+  })
+
+  return {
+    namespace,
+    stats,
+    session,
+    bulkhead,
+    breaker,
+    rateLimit,
+    async connect() {
+      await client.connect()
+      await session.start()
+    },
+    async disconnect() {
+      await session.close()
+      client.disconnect()
+    },
+    cut() {
+      client.disconnect()
+    },
+    async restore() {
+      await client.connect()
     },
   }
 }

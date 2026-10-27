@@ -1,0 +1,58 @@
+# The delegated topology when the coordinator stops answering.
+#
+# The delegated layers admit from authority a replica already holds, so an outage
+# does not stop the fleet: it keeps serving from what it was granted, and stops
+# when that authority lapses. The strict path has no such middle ground - with
+# `onCoordinatorError` at its default fail-open it admits everything, which is what
+# 22-strict-redis-outage measures.
+#
+#   npm run demo 20
+#   npm run compare 20 22
+id: "20-serval-redis-outage"
+title: "Delegated, with the coordinator gone"
+question: "What does a delegated fleet do when the authority cannot be reached?"
+
+topology:
+  policies: serval
+  scope: global
+  replicas: 4
+  env:
+    REDIS_URL: "redis://127.0.0.1:6379"
+    BULKHEAD_LIMIT: "5"
+    POLICY_TIMEOUT_MS: "2000"
+    RETRY_MAX_ATTEMPTS: "2"
+    SERVAL_FRESHNESS_MS: "1000"
+    SERVAL_VALIDITY_MS: "5000"
+    SERVAL_GRACE_MS: "5000"
+
+scenario:
+  durationMs: 15000
+  concurrency: 20
+  targetRps: 400
+  seed: 1
+  operations:
+    - { name: "orders.get", method: GET, path: "/orders/{id}", weight: 1 }
+  dependency:
+    latencyMs: 30
+    failureRate: 0
+    capacity: 8
+
+# 4s-12s: every replica's coordinator client is disconnected, and the client has no
+# offline queue, so every coordinator call fails. Redis keeps its state - this is
+# the outage, not the data-loss case. The window is longer than the allocation
+# validity, so the lapse happens inside the run rather than after it.
+timeline:
+  - { at: 4000, action: "redis.cut" }
+  - { at: 12000, action: "redis.restore" }
+
+checks:
+  - { name: witnessPresent }
+  - { name: witnessSamplesAtLeast, params: { value: 200 } }
+  # The safety claim survives the outage: a replica can only admit against authority
+  # it already holds, so the dependency stays inside the budget that was granted.
+  - { name: peakInFlightAtMost, params: { value: 5 } }
+  - { name: requestsAtLeast, params: { value: 500 } }
+  # The outage really happened: the policies saw a coordinator that could not answer.
+  - { name: eventCountAtLeast, params: { type: "breaker.degraded", value: 1 } }
+  # And the fleet kept serving through it instead of refusing wholesale.
+  - { name: successRateAtLeast, params: { value: 0.1 } }

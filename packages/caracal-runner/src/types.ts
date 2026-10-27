@@ -32,7 +32,7 @@ export type LatencyMs = {
 }
 
 export type Topology = {
-  policies: "local" | "distributed"
+  policies: "local" | "distributed" | "serval"
   /** The scope function in words: `global`, `region:<region>`, `tenant:<id>`. */
   scope: string
   /** Anything else that changes behaviour and should be visible next to numbers. */

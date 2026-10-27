@@ -1,0 +1,51 @@
+# 20-serval-redis-outage with the per-process ceiling composed innermost.
+#
+# During the outage the delegated layers admit from what the replica holds, and how
+# much that is was decided by the authority before the cut. The ceiling is what
+# states the worst case without asking the authority anything: 2 per process across
+# 4 processes is 8, whatever was granted.
+#
+#   npm run demo 21
+#   npm run compare 20 21
+id: "21-serval-redis-outage-bounded"
+title: "Outage, with a ceiling that needs no authority"
+question: "Can the fleet state its worst case while the coordinator is unreachable?"
+
+topology:
+  policies: serval
+  scope: global
+  replicas: 4
+  env:
+    REDIS_URL: "redis://127.0.0.1:6379"
+    BULKHEAD_LIMIT: "5"
+    LOCAL_CEILING: "2"           # 4 x 2 = 8, decided without the authority
+    POLICY_TIMEOUT_MS: "2000"
+    RETRY_MAX_ATTEMPTS: "2"
+    SERVAL_FRESHNESS_MS: "1000"
+    SERVAL_VALIDITY_MS: "5000"
+    SERVAL_GRACE_MS: "5000"
+
+scenario:
+  durationMs: 15000
+  concurrency: 20
+  targetRps: 400
+  seed: 1
+  operations:
+    - { name: "orders.get", method: GET, path: "/orders/{id}", weight: 1 }
+  dependency:
+    latencyMs: 30
+    failureRate: 0
+    capacity: 8
+
+timeline:
+  - { at: 4000, action: "redis.cut" }
+  - { at: 12000, action: "redis.restore" }
+
+checks:
+  - { name: witnessPresent }
+  - { name: witnessSamplesAtLeast, params: { value: 200 } }
+  # The worst case the fleet can state without the authority answering.
+  - { name: peakInFlightAtMost, params: { value: 8 } }
+  - { name: requestsAtLeast, params: { value: 500 } }
+  - { name: eventCountAtLeast, params: { type: "breaker.degraded", value: 1 } }
+  - { name: successRateAtLeast, params: { value: 0.1 } }

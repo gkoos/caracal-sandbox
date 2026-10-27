@@ -1,0 +1,54 @@
+# The strict coordinator under the same outage as 20 and 21.
+#
+# There is no local authority to fall back on, so every admission has to consult
+# Redis and cannot. What happens next is `onCoordinatorError`, and its default is
+# fail-open: the call runs. This study is the control for the delegated pair - the
+# checks assert the *documented* behaviour rather than a good outcome, because the
+# point is what the dependency sees.
+#
+#   npm run demo 22
+#   npm run compare 22 20
+id: "22-strict-redis-outage"
+title: "Strict coordinators, same outage"
+question: "Where does an admission go when the coordinator cannot answer and the default is fail-open?"
+
+topology:
+  policies: distributed
+  scope: global
+  replicas: 4
+  env:
+    REDIS_URL: "redis://127.0.0.1:6379"
+    BULKHEAD_LIMIT: "5"
+    POLICY_TIMEOUT_MS: "2000"
+    RETRY_MAX_ATTEMPTS: "2"
+    COORDINATOR_ERROR: "fail-open"
+
+scenario:
+  durationMs: 15000
+  concurrency: 20
+  targetRps: 400
+  seed: 1
+  operations:
+    - { name: "orders.get", method: GET, path: "/orders/{id}", weight: 1 }
+  dependency:
+    latencyMs: 30
+    failureRate: 0
+    capacity: 8
+
+timeline:
+  - { at: 4000, action: "redis.cut" }
+  - { at: 12000, action: "redis.restore" }
+
+checks:
+  - { name: witnessPresent }
+  - { name: witnessSamplesAtLeast, params: { value: 200 } }
+  - { name: requestsAtLeast, params: { value: 500 } }
+  # `onCoordinatorError: fail-open` governs the breaker, and the breaker admits - but
+  # the distributed bulkhead fails closed on coordinator loss whatever that setting
+  # says, and it is innermost, so it decides. This is the measured control for the
+  # delegated pair: the same admitted share, paid for with far more coordination.
+  - { name: rejectionsByReasonAtLeast, params: { reason: coordinator-unavailable, value: 100 } }
+  - { name: successRateAtLeast, params: { value: 0.1 } }
+  # The unbounded case this study exists to show, stated as the loose ceiling four
+  # per-process limits can reach - the number study 01 measures.
+  - { name: peakInFlightAtMost, params: { value: 20 } }

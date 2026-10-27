@@ -1,0 +1,61 @@
+# The permit ledger, on the delegated bulkhead: every permit a replica admitted has
+# to come back - released when the work ends, or released late after its lease
+# lapsed. A leaked permit is capacity nobody can use.
+#
+# The chaos here is a frozen holder rather than a killed one, and that is the point:
+# a killed replica's events stop with it, so no ledger it writes can balance. That
+# case is measured by 07-chaos from the other side, from Redis's own live lease
+# count - the authoritative instrument. What this study adds is the client's own
+# accounting, which is the only place a *soft* leak would show: a permit admitted
+# and then neither released nor renewed, while the process is still alive.
+#
+#   npm run demo 27
+#   npm run compare 18 27
+id: "27-serval-permit-ledger"
+title: "The permit ledger, with a holder frozen past its lease"
+question: "When a delegated holder stops renewing, does its capacity come back?"
+
+topology:
+  policies: serval
+  scope: global
+  replicas: 4
+  env:
+    REDIS_URL: "redis://127.0.0.1:6379"
+    BULKHEAD_LIMIT: "5"
+    BULKHEAD_LEASE_MS: "600"     # short, so the 1500ms freeze outlives the lease
+    POLICY_TIMEOUT_MS: "3000"
+    RETRY_MAX_ATTEMPTS: "1"
+    BREAKER_MINIMUM_THROUGHPUT: "100"
+    BREAKER_FAILURE_THRESHOLD: "0.5"
+    BREAKER_OPEN_MS: "1000"
+    SERVAL_FRESHNESS_MS: "1000"
+    SERVAL_VALIDITY_MS: "5000"
+    SERVAL_GRACE_MS: "5000"
+
+scenario:
+  durationMs: 12000
+  concurrency: 12
+  targetRps: 40
+  seed: 11
+  operations:
+    - { name: "orders.get", method: GET, path: "/orders/{id}", weight: 1 }
+  dependency:
+    latencyMs: 200
+    failureRate: 0
+    capacity: 8
+
+# 5s: freeze a replica mid-permit for 1500ms. It cannot renew, its lease lapses,
+# and it must not hold capacity the fleet has already reclaimed.
+timeline:
+  - { at: 5000, action: "replica.freeze", replica: 1, ms: 1500 }
+
+checks:
+  - { name: witnessPresent }
+  - { name: witnessSamplesAtLeast, params: { value: 50 } }
+  - { name: requestsAtLeast, params: { value: 200 } }
+  # The ledger: every permit the fleet admitted came back.
+  - { name: leakedPermitsEquals, params: { value: 0 } }
+  # And the freeze was real: the holder reported the lease it could not renew.
+  - { name: eventCountAtLeast, params: { type: "bulkhead.lease-lost", value: 1 } }
+  # Safety through it: the dependency stays inside the shared limit.
+  - { name: peakInFlightAtMost, params: { value: 5 } }

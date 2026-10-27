@@ -682,6 +682,229 @@ const scenes = {
       "caracal demo — AWS unsafe replay topology",
     )
   },
+
+  "18-serval-delegated"() {
+    const parts = []
+    scaffold(parts, {
+      replicasSub: () => "replica · serval session · allocation ≤ 5",
+      loadgenSub: "20 concurrent",
+    })
+    valkeyNode(parts, "authority · limit 5 · read on the slow path")
+    witnessUnder(parts, "witness: peak 5")
+    parts.push(
+      caption(
+        390,
+        345,
+        "each replica holds its share — 2.5 Redis commands per execution become 0.35, same ceiling",
+      ),
+    )
+    return svg(780, 360, parts.join("\n"))
+  },
+
+  "19-serval-with-local-ceiling"() {
+    const parts = []
+    scaffold(parts, {
+      replicasSub: () => "replica · serval · bulkhead.local 2 innermost",
+      loadgenSub: "20 concurrent",
+    })
+    valkeyNode(parts, "authority · limit 5 · fleet target")
+    witnessUnder(parts, "witness: peak 5 (bound 8)")
+    parts.push(
+      caption(
+        390,
+        345,
+        "the ceiling needs no authority: 2 per process × 4 is the worst case the fleet can state",
+      ),
+    )
+    return svg(780, 360, parts.join("\n"))
+  },
+
+  "20-serval-redis-outage"() {
+    const parts = []
+    scaffold(parts, {
+      replicasSub: () => "replica · serval · validity 5s",
+      loadgenSub: "20 concurrent",
+    })
+    valkeyNode(parts, "authority · unreachable 4s–12s")
+    witnessUnder(parts, "witness: peak 5")
+    parts.push(bolt(24, 36, "4s–12s: coordinator cut"))
+    parts.push(
+      caption(
+        390,
+        345,
+        "with the authority gone each replica admits only what it already holds, and stops when that lapses",
+      ),
+    )
+    return svg(780, 360, parts.join("\n"))
+  },
+
+  "21-serval-redis-outage-bounded"() {
+    const parts = []
+    scaffold(parts, {
+      replicasSub: () => "replica · serval · bulkhead.local 2 innermost",
+      loadgenSub: "20 concurrent",
+    })
+    valkeyNode(parts, "authority · unreachable 4s–12s")
+    witnessUnder(parts, "witness: peak 5 (bound 8)")
+    parts.push(bolt(24, 36, "4s–12s: coordinator cut"))
+    parts.push(
+      caption(
+        390,
+        345,
+        "the bound is decided inside the process: 8 is the worst case whether or not the authority answers",
+      ),
+    )
+    return svg(780, 360, parts.join("\n"))
+  },
+
+  "22-strict-redis-outage"() {
+    const parts = []
+    scaffold(parts, {
+      replicasSub: () => "replica · shared budget",
+      loadgenSub: "20 concurrent",
+    })
+    valkeyNode(parts, "coordinator · unreachable 4s–12s")
+    witnessUnder(parts, "witness: peak 5")
+    parts.push(bolt(24, 36, "4s–12s: coordinator cut"))
+    parts.push(
+      caption(
+        390,
+        345,
+        "no local authority to fall back on: the bulkhead fails closed, at 3.2 Redis commands per execution",
+      ),
+    )
+    return svg(780, 360, parts.join("\n"))
+  },
+
+  "23-serval-dependency-fault"() {
+    const parts = []
+    scaffold(parts, {
+      replicasSub: () => "replica · serval · freshness 5s",
+      loadgenSub: "20 concurrent",
+    })
+    valkeyNode(parts, "authority · limit 5 · open 5s")
+    witnessUnder(parts, "witness: peak 5")
+    parts.push(bolt(24, 36, "3s–9s: dependency fails"))
+    parts.push(
+      caption(
+        390,
+        345,
+        "the fleet opens, probes three per window and closes — six probes, not 512",
+      ),
+    )
+    return svg(780, 360, parts.join("\n"))
+  },
+
+  "24-strict-dependency-fault"() {
+    const parts = []
+    scaffold(parts, {
+      replicasSub: () => "replica · shared budget",
+      loadgenSub: "20 concurrent",
+    })
+    valkeyNode(parts, "coordinator · limit 5 · open 5s")
+    witnessUnder(parts, "witness: peak 5")
+    parts.push(bolt(24, 36, "3s–9s: dependency fails"))
+    parts.push(
+      caption(
+        390,
+        345,
+        "open, half-open, closed — three probes, and the fleet recovers",
+      ),
+    )
+    return svg(780, 360, parts.join("\n"))
+  },
+
+  "25-serval-rate-delegated"() {
+    const parts = []
+    scaffold(parts, {
+      replicasSub: () => "replica · serval · grant ≤ 10 permits",
+      loadgenSub: "20 concurrent",
+    })
+    valkeyNode(parts, "authority · 100 req/s · grant on demand")
+    witnessUnder(parts, "witness: ~100/s")
+    parts.push(
+      caption(
+        390,
+        345,
+        "each replica spends a held grant — 4.24 Redis commands per execution become 1.05, same 100/s",
+      ),
+    )
+    return svg(780, 360, parts.join("\n"))
+  },
+
+  "26-serval-rate-outage"() {
+    const parts = []
+    scaffold(parts, {
+      replicasSub: () => "replica · serval · grant ≤ 10 permits",
+      loadgenSub: "20 concurrent",
+    })
+    valkeyNode(parts, "authority · unreachable 4s–12s")
+    witnessUnder(parts, "witness: 27/s")
+    parts.push(bolt(24, 36, "4s–12s: coordinator cut"))
+    parts.push(
+      caption(
+        390,
+        345,
+        "a quota grant is a consumable: the fleet spends the 40 permits it holds, then stops — no middle ground",
+      ),
+    )
+    return svg(780, 360, parts.join("\n"))
+  },
+
+  "27-serval-permit-ledger"() {
+    const parts = []
+    scaffold(parts, {
+      replicasSub: () => "replica · serval · lease 600ms",
+      loadgenSub: "12 concurrent",
+    })
+    valkeyNode(parts, "authority · limit 5 · allocation on demand")
+    witnessUnder(parts, "witness: peak 5")
+    parts.push(bolt(24, 36, "5s: holder frozen 1.5s"))
+    parts.push(
+      caption(
+        390,
+        345,
+        "the lease lapses, the fleet reclaims the slot, and the ledger still balances: 0 permits leaked",
+      ),
+    )
+    return svg(780, 360, parts.join("\n"))
+  },
+
+  "28-serval-rate-burst"() {
+    const parts = []
+    scaffold(parts, {
+      replicasSub: () => "replica · serval · grant ≤ 40 permits",
+      loadgenSub: "20 concurrent",
+    })
+    valkeyNode(parts, "authority · 100 req/s · grants on demand")
+    witnessUnder(parts, "witness: peak 139/s")
+    parts.push(
+      caption(
+        390,
+        345,
+        "a bigger grant buys no peak and no cost: 1.0 Redis commands per execution, same 139/s as the strict row",
+      ),
+    )
+    return svg(780, 360, parts.join("\n"))
+  },
+
+  "29-strict-rate-burst"() {
+    const parts = []
+    scaffold(parts, {
+      replicasSub: () => "replica · shared budget",
+      loadgenSub: "20 concurrent",
+    })
+    valkeyNode(parts, "coordinator · 100 req/s · burst 40")
+    witnessUnder(parts, "witness: peak 140/s")
+    parts.push(
+      caption(
+        390,
+        345,
+        "the same 40-permit burst, arbitrated: same 140/s, at 4.24 Redis commands per execution",
+      ),
+    )
+    return svg(780, 360, parts.join("\n"))
+  },
 }
 
 // ---------------------------------------------------------------------------

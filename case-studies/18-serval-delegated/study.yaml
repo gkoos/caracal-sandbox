@@ -1,0 +1,54 @@
+# The delegated topology: the same four replicas, the same shared budget, but each
+# replica holds a bounded piece of the fleet's authority and enforces it locally.
+#
+# Claim: the dependency still never sees more than the shared limit, and the fleet
+# stops paying a round trip per admission for it. This is the comparison that
+# decides whether the delegation is worth its documented deviations.
+#
+#   npm run demo 18
+#   npm run compare 02 18     # strict against delegated, same workload
+id: "18-serval-delegated"
+title: "Same budget, held locally"
+question: "What does the same shared limit cost when each replica caches its share?"
+
+topology:
+  policies: serval
+  scope: global
+  replicas: 4
+  env:
+    REDIS_URL: "redis://127.0.0.1:6379"
+    BULKHEAD_LIMIT: "5"          # the fleet's shared ceiling, as in 02
+    POLICY_TIMEOUT_MS: "2000"
+    RETRY_MAX_ATTEMPTS: "2"
+    SERVAL_FRESHNESS_MS: "1000"  # how long a cached CLOSED verdict admits unread
+    SERVAL_VALIDITY_MS: "5000"   # how long an allocation or grant stays valid
+    SERVAL_GRACE_MS: "5000"      # how long the authority holds a lapsed allocation
+
+scenario:
+  durationMs: 15000
+  concurrency: 20
+  targetRps: 400                 # same offered load as 01 and 02
+  seed: 1
+  operations:
+    - { name: "orders.get", method: GET, path: "/orders/{id}", weight: 1 }
+  dependency:
+    latencyMs: 30
+    failureRate: 0
+    capacity: 8
+
+checks:
+  - { name: witnessPresent }
+  - { name: witnessSamplesAtLeast, params: { value: 200 } }
+  # The safety claim comes first, and it is the same one 02 makes: delegated or
+  # not, the dependency never sees more than the budget the fleet was given.
+  - { name: peakInFlightAtMost, params: { value: 5 } }
+  - { name: peakInFlightAtLeast, params: { value: 4 } }
+  - { name: requestsAtLeast, params: { value: 500 } }
+  - { name: breakerOpensEquals, params: { value: 0 } }
+  # The cost claim, which is the whole reason for the topology: 02 pays ~4 Redis
+  # commands per execution. A cached authority should pay far less - and whatever
+  # it does pay is counted, including every authority read and allocation.
+  - { name: coordinatorRoundTripsAtMost, params: { value: 3 } }
+  # The budget still has to be reachable: a topology that admits almost nothing
+  # would satisfy every ceiling above for the wrong reason.
+  - { name: successRateAtLeast, params: { value: 0.25 } }

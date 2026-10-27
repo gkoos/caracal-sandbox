@@ -7,7 +7,7 @@
  * different values - it does not get a different copy of the app.
  */
 
-export type Topology = "local" | "distributed"
+export type Topology = "local" | "distributed" | "serval"
 export type ScopeKind = "global" | "region" | "tenant"
 export type CoordinatorErrorBehaviour = "fail-open" | "fail-closed"
 export type RampTarget = "bulkhead" | "rate"
@@ -62,6 +62,27 @@ export type AppConfig = {
   timeoutMs: number
   retry: { maxAttempts: number; delayMs: number }
   ramp: RampConfig | undefined
+  /**
+   * The delegated (Serval) knobs: how long a replica trusts what it already holds.
+   * Read only when `topology` is `serval`.
+   */
+  serval: {
+    /** A cached CLOSED verdict admits with no authority read for this long. */
+    freshnessMs: number
+    /** How long a quota grant or a slot allocation stays valid. */
+    validityMs: number
+    /** How long the authority holds a lapsed allocation, so a lost reply reconciles. */
+    graceMs: number
+    /** Convergence that does not depend on a notification arriving. */
+    reconciliationIntervalMs: number
+  }
+  /**
+   * An optional per-process ceiling, composed innermost whatever the topology is.
+   *
+   * A local policy is the only bound that still holds when the coordinator does not
+   * answer, which is why it is the thing that makes a delegated fleet boundable.
+   */
+  localCeiling: number
 }
 
 function int(env: NodeJS.ProcessEnv, key: string, fallback: number): number {
@@ -174,7 +195,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     topology: oneOf<Topology>(
       env,
       "TOPOLOGY",
-      ["local", "distributed"],
+      ["local", "distributed", "serval"],
       "local",
     ),
     scope: oneOf<ScopeKind>(
@@ -225,6 +246,13 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
       maxAttempts: int(env, "RETRY_MAX_ATTEMPTS", 2),
       delayMs: int(env, "RETRY_DELAY_MS", 50),
     },
+    serval: {
+      freshnessMs: int(env, "SERVAL_FRESHNESS_MS", 1_000),
+      validityMs: int(env, "SERVAL_VALIDITY_MS", 5_000),
+      graceMs: int(env, "SERVAL_GRACE_MS", 5_000),
+      reconciliationIntervalMs: int(env, "SERVAL_RECONCILIATION_MS", 10_000),
+    },
+    localCeiling: int(env, "LOCAL_CEILING", 0),
   }
 }
 
@@ -259,5 +287,10 @@ export function describeConfig(
     ramp: config.ramp
       ? `${config.ramp.target} ${config.ramp.floor} -> ${config.ramp.baseline} every ${config.ramp.stepMs}ms`
       : "off",
+    "local ceiling":
+      config.localCeiling > 0
+        ? `${config.localCeiling} per process (innermost)`
+        : "off",
+    serval: `freshness ${config.serval.freshnessMs}ms, validity ${config.serval.validityMs}ms, grace ${config.serval.graceMs}ms`,
   }
 }

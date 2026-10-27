@@ -1,0 +1,50 @@
+# The control for 28: the same shared 100/s budget and the same burst of 40, with
+# every admission arbitrated by the coordinator.
+#
+# The strict limiter can spend the burst once and then the sustained rate applies.
+# The delegated one is holding four grants of that size, so what it can produce is a
+# fleet question - which is what 28 measures.
+#
+#   npm run demo 29
+#   npm run compare 28 29
+id: "29-strict-rate-burst"
+title: "The same burst, arbitrated"
+question: "What does the same burst cost when every admission is arbitrated?"
+
+topology:
+  policies: distributed
+  scope: global
+  replicas: 4
+  env:
+    REDIS_URL: "redis://127.0.0.1:6379"
+    BULKHEAD_LIMIT: "20"
+    RATE_LIMIT_RATE: "100"
+    RATE_LIMIT_BURST: "40"
+    POLICY_TIMEOUT_MS: "2000"
+    RETRY_MAX_ATTEMPTS: "1"
+
+scenario:
+  durationMs: 15000
+  concurrency: 20
+  targetRps: 400
+  seed: 1
+  operations:
+    - { name: "orders.get", method: GET, path: "/orders/{id}", weight: 1 }
+  dependency:
+    latencyMs: 30
+    failureRate: 0
+    # Same headroom as 28: see the note there.
+    capacity: 64
+
+checks:
+  - { name: witnessPresent }
+  - { name: witnessSamplesAtLeast, params: { value: 200 } }
+  - { name: requestsAtLeast, params: { value: 500 } }
+  - { name: dependencyRateAtMost, params: { value: 110 } }
+  - { name: dependencyRateAtLeast, params: { value: 80 } }
+  - { name: rateLimitRejectionsAtLeast, params: { reason: rate-exceeded, value: 500 } }
+  - { name: rateLimitAdmittedAtLeast, params: { value: 1000 } }
+  - { name: breakerOpensEquals, params: { value: 0 } }
+  # The same burst, from the arbitrated side: the strict limiter hands the whole 40
+  # to whoever asks first, so its peak is the configured burst too.
+  - { name: dependencyPeakRateAtMost, params: { value: 150 } }

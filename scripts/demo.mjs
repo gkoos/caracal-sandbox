@@ -38,6 +38,14 @@ const CARACAL_VERSION = JSON.parse(
     "utf8",
   ),
 ).version
+// `link:local` rewrites the dependency to a tarball, so the spec is the difference
+// between a run that measured the published package and one that measured a
+// checkout. Recorded with every artifact: a number without its provenance is a claim.
+const CARACAL_SOURCE = JSON.parse(
+  readFileSync(`${ROOT}package.json`, "utf8"),
+).dependencies["@gkoos/caracal"].startsWith("file:")
+  ? "local"
+  : "npm"
 
 const DEMO_ID = process.argv[2]
 // `npm run` consumes `--flag=value` before the script sees it, so every switch
@@ -246,6 +254,23 @@ async function applyAction(downstreamUrl, action) {
       chaosActions.push(`kill:replica-${action.replica}`)
       entry.child.kill("SIGKILL")
     }
+    return
+  }
+  if (action.action === "redis.cut" || action.action === "redis.restore") {
+    // The coordinator client is disconnected on every replica, and the client has no
+    // offline queue, so every coordinator call fails until it is restored. Redis
+    // itself stays up: this is the outage, not the data-loss case that
+    // `redis.state-loss` produces.
+    const path =
+      action.action === "redis.cut" ? "coordinator-cut" : "coordinator-restore"
+    chaosActions.push(`${action.action}(all ${replicas} replicas)`)
+    await Promise.all(
+      Array.from({ length: replicas }, (_, index) =>
+        fetch(`http://127.0.0.1:${PORT_BASE + index}/_admin/${path}`, {
+          method: "POST",
+        }),
+      ),
+    )
     return
   }
   if (action.action === "redis.state-loss") {
@@ -488,12 +513,26 @@ for (let index = 0; index < replicas; index += 1) {
   }
 }
 
+// The permit ledger, measured by the demo because only the demo knows which
+// replicas were asked to stop: every permit a bulkhead admitted has to come back.
+// `bulkhead.lease-lost` is not subtracted - a holder that lost its lease still
+// releases the permit when its work ends (study 07 records both at 126).
+{
+  const view = summarizer.snapshot()
+  const admitted = view.eventsByType?.["bulkhead.admitted"] ?? 0
+  const released = view.eventsByType?.["bulkhead.released"] ?? 0
+  summarizer.setPermitsLeaked(admitted - released)
+}
+
 const caracal = summarizer.snapshot()
 const executions = Object.values(caracal.executionsByOutcome).reduce(
   (sum, value) => sum + value,
   0,
 )
-const distributed = demo.topology.policies === "distributed"
+// Any topology that talks to a coordinator pays for it, delegated or not. The
+// cost panel is what a reader weighs the topology against, so it cannot be
+// limited to the strict one - that would hide the delegated row's own cost.
+const coordinated = demo.topology.policies !== "local"
 
 // The ramp view: applied writes from every replica, merged, plus the witness's
 // own timeline so each step can be checked against what the dependency saw.
@@ -526,7 +565,7 @@ const summary = createSummary({
   demo: demo.id,
   title: demo.title,
   caracalVersion: CARACAL_VERSION,
-  caracalSource: "npm",
+  caracalSource: CARACAL_SOURCE,
   topology: {
     policies: demo.topology.policies,
     scope: demo.topology.scope,
@@ -542,7 +581,7 @@ const summary = createSummary({
   witness,
   caracal,
   ...(ramp ? { ramp } : {}),
-  ...(distributed
+  ...(coordinated
     ? {
         coordination: {
           ...coordination,
@@ -576,7 +615,7 @@ console.log(`  witness peak in-flight: ${summary.witness?.peakInFlight}`)
 console.log(
   `  client: ${client.success}/${client.requests} ok, refused ${JSON.stringify(client.refusedByReason)}, ${client.timedOut} timed out`,
 )
-if (distributed) {
+if (coordinated) {
   console.log(
     `  coordination: ${summary.coordination.roundTripsPerExecution} trips/exec (${coordination.commands} commands)`,
   )

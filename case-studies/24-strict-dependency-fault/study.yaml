@@ -1,0 +1,55 @@
+# The strict coordinators with the dependency failing exactly as in 23.
+#
+# The control for the cached verdict: a strict coordinator learns the breaker opened
+# on the next call, so a failing dependency stops receiving traffic almost
+# immediately. The difference between this run and 23 is the deviation the
+# delegated topology accepts in exchange for its cheaper admissions.
+#
+#   npm run demo 24
+#   npm run compare 23 24
+id: "24-strict-dependency-fault"
+title: "Strict coordinators, dependency failing"
+question: "How much traffic reaches a failing dependency when every call consults the coordinator?"
+
+topology:
+  policies: distributed
+  scope: global
+  replicas: 4
+  env:
+    REDIS_URL: "redis://127.0.0.1:6379"
+    BULKHEAD_LIMIT: "5"
+    POLICY_TIMEOUT_MS: "2000"
+    RETRY_MAX_ATTEMPTS: "2"
+    BREAKER_MINIMUM_THROUGHPUT: "10"
+    BREAKER_FAILURE_THRESHOLD: "0.5"
+    BREAKER_OPEN_MS: "5000"
+    # The same window as 23, so the two runs stay comparable: see the note there.
+    BREAKER_WINDOW_SIZE: "10"
+
+scenario:
+  durationMs: 20000
+  concurrency: 20
+  targetRps: 400
+  seed: 1
+  operations:
+    - { name: "orders.get", method: GET, path: "/orders/{id}", weight: 1 }
+  dependency:
+    latencyMs: 30
+    failureRate: 0
+    capacity: 8
+
+timeline:
+  - { at: 3000, action: "dependency.fail" }
+  - { at: 9000, action: "dependency.recover" }
+
+checks:
+  - { name: witnessPresent }
+  - { name: witnessSamplesAtLeast, params: { value: 200 } }
+  - { name: requestsAtLeast, params: { value: 500 } }
+  - { name: breakerOpensInScopeAtLeast, params: { scope: "global", value: 1 } }
+  - { name: peakInFlightAtMost, params: { value: 5 } }
+  # Same probe budget as 23, so the two runs stay comparable.
+  - { name: peakProbesAtMost, params: { value: 6 } }
+  - { name: peakProbesAtLeast, params: { value: 1 } }
+  # The control's recovery: open, half-open, closed.
+  - { name: eventCountAtLeast, params: { type: "breaker.state-changed", value: 3 } }

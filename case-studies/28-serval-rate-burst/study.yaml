@@ -1,0 +1,58 @@
+# The burst knob, delegated: the same shared 100/s budget as 25, with a grant four
+# times larger (40 permits instead of 10).
+#
+# A grant is spent locally and the authority cannot take it back, so the burst a
+# fleet can produce is bounded by the grants its replicas are holding, not by the
+# configured burst alone. The strict limiter in 29 has the same burst and can only
+# spend it once; this study is what that difference costs in peak rate - and what it
+# buys in round trips, which is the trade-off `grantSize` documents.
+#
+#   npm run demo 28
+#   npm run compare 28 29     # the same burst, held locally vs arbitrated
+id: "28-serval-rate-burst"
+title: "A larger grant, held locally"
+question: "What does a bigger chunk of the budget buy, and what does it cost in peak rate?"
+
+topology:
+  policies: serval
+  scope: global
+  replicas: 4
+  env:
+    REDIS_URL: "redis://127.0.0.1:6379"
+    BULKHEAD_LIMIT: "20"         # non-binding: 100/s at 30ms is ~3 in flight
+    RATE_LIMIT_RATE: "100"
+    RATE_LIMIT_BURST: "40"       # also the delegated grant: four times study 25's
+    POLICY_TIMEOUT_MS: "2000"
+    RETRY_MAX_ATTEMPTS: "1"
+    SERVAL_VALIDITY_MS: "5000"
+    SERVAL_GRACE_MS: "5000"
+
+scenario:
+  durationMs: 15000
+  concurrency: 20
+  targetRps: 400               # same offered load as 25 and 29
+  seed: 1
+  operations:
+    - { name: "orders.get", method: GET, path: "/orders/{id}", weight: 1 }
+  dependency:
+    latencyMs: 30
+    failureRate: 0
+    # Headroom for the burst under test: a 40-permit burst against the 8-slot
+    # capacity of studies 12/25 measures the dependency's overload (study 08), not
+    # the burst knob. Both members of this pair use the same capacity.
+    capacity: 64
+
+checks:
+  - { name: witnessPresent }
+  - { name: witnessSamplesAtLeast, params: { value: 200 } }
+  - { name: requestsAtLeast, params: { value: 500 } }
+  # The sustained budget is unchanged, whatever the grant size.
+  - { name: dependencyRateAtMost, params: { value: 110 } }
+  - { name: dependencyRateAtLeast, params: { value: 80 } }
+  - { name: rateLimitRejectionsAtLeast, params: { reason: rate-exceeded, value: 500 } }
+  - { name: rateLimitAdmittedAtLeast, params: { value: 1000 } }
+  - { name: breakerOpensEquals, params: { value: 0 } }
+  # The burst the configured 40 permits allow, and no more: a grant held locally is
+  # drawn on demand, so the fleet's peak tracks the offered load rather than the
+  # four grants it could theoretically spend at once.
+  - { name: dependencyPeakRateAtMost, params: { value: 150 } }

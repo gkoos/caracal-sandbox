@@ -22,7 +22,9 @@ export {
 export {
   type CoordinationStats,
   type CoordinatorSet,
+  type ServalSet,
   createCoordinators,
+  createServalCoordinators,
 } from "./coordinators.js"
 export {
   type PolicySet,

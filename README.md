@@ -31,8 +31,22 @@ Case studies that run the same workload against the same dependency, move the co
 | [`15 · per-tenant rate quota`](case-studies/15-rate-tenant-quota/README.md) | the tenant | 50 tenants, one noisy → the noisy tenant's rate is capped, the other 49 unaffected |
 | [`16 · recovery ramp`](case-studies/16-recovery-ramp/README.md) | the comeback | the breaker closes → the app ramps the shared limit **1 → 2 → 4 → 8**; the dependency's peak tracks each step |
 | [`17 · AWS unsafe replay`](case-studies/17-aws-unsafe-replay/README.md) | the command | an accepted SQS send whose response is lost is not replayed: **one message per call**, not two |
+| [`18 · same budget, held locally`](case-studies/18-serval-delegated/README.md) | the fleet's authority | each replica holds its share of one budget → peak in-flight still **5**, and **2.5 → 0.35** Redis commands per execution |
+| [`19 · local ceiling`](case-studies/19-serval-with-local-ceiling/README.md) | the process, innermost | a per-process ceiling under a delegated budget → the same **5** peak, still **0.35** commands |
+| [`20 · coordinator outage`](case-studies/20-serval-redis-outage/README.md) | the authority | coordinator unreachable 4s–12s → each replica admits only what it already holds, then stops: **889** of 6,257 |
+| [`21 · outage with a ceiling`](case-studies/21-serval-redis-outage-bounded/README.md) | the process, again | the same outage with `bulkhead.local 2` → **884** admitted, and the bound needs no authority |
+| [`22 · strict outage`](case-studies/22-strict-redis-outage/README.md) | the coordinator | the same outage on the strict path, fail-closed → **766** admitted at **3.2** Redis commands per execution |
+| [`23 · dependency fault`](case-studies/23-serval-dependency-fault/README.md) | the cached verdict | a 6s dependency failure → the fleet opens, probes **three per window**, closes: 6 probes, not 512 |
+| [`24 · strict dependency fault`](case-studies/24-strict-dependency-fault/README.md) | the coordinator | the same failure with every call consulting it → the same three state changes at **2.25** commands per execution |
+| [`25 · rate, held locally`](case-studies/25-serval-rate-delegated/README.md) | the quota | a shared 100/s budget spent from held grants → the dependency still sustains **101/s**, at **4.24 → ~1.05** Redis commands per execution |
+| [`26 · rate limiter, coordinator gone`](case-studies/26-serval-rate-outage/README.md) | the quota, offline | an 8s coordinator outage → the ceiling holds by collapsing: **27/s** against a 100/s budget, never above it |
+| [`27 · permit ledger`](case-studies/27-serval-permit-ledger/README.md) | the ledger | a holder frozen past its lease → the fleet reclaims the slot and **0 permits** outlive the run |
+| [`28 · a larger grant`](case-studies/28-serval-rate-burst/README.md) | the grant size | 40 permits instead of 10 → the same peak (**139/s**) and the same cost (**1.0** trips/exec): the burst is configured, not amplified |
+| [`29 · the same burst, arbitrated`](case-studies/29-strict-rate-burst/README.md) | the quota, arbitrated | the same burst with every admission consulting the coordinator → the same 140/s at **4.24** trips/exec |
 
 Each number above is read from the most independent instrument available: the dependency's own counters (`01`, `02`, `08`), caracal's events for breaker and permit claims (`03`–`05`), the client's own timings (`06`), and Redis's own lease count (`07`). Three of those instruments are not caracal at all: the dependency's counters, the client's clocks, and Redis's own lease state. Where a claim can only be reported by caracal - which breaker opened, how many permits are live - the study says so rather than implying it was independently measured. `16` adds a fourth: the application's own ramp log, checked step by step against the dependency's in-flight timeline.
+
+`18`–`25` move the coordination boundary into the process and hold it there. Their command counts are not flattered by the move: every authority read, grant and allocation the delegated path makes goes through the demo's own recording client, so the strict and delegated rows are counted by the same instrument.
 
 ## Run it
 

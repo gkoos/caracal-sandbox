@@ -4,22 +4,24 @@
  * checkout, without editing package.json by hand.
  *
  *   node scripts/link-local.mjs local    # pack ../caracal and install the tarball
- *   node scripts/link-local.mjs npm      # back to @gkoos/caracal@<pinned>
+ *   node scripts/link-local.mjs npm      # back to the published package, latest
+ *   node scripts/link-local.mjs npm 0.12.0
  *
+ * The npm mode takes the version from the argument rather than from
+ * `dependencies`, because installing the tarball rewrites that entry to a `file:`
+ * spec - so after a `local` run there is no pinned version left to read.
+ * `--save-exact` records whatever it resolves, so the next install is pinned.
  * The local checkout is installed as a tarball rather than as `file:../caracal`
  * on purpose: the package ships built `dist/` output, so a tarball install is
  * exactly what a consumer gets. A stale build is the failure mode to watch for,
  * which is why the age of dist/ is reported.
  */
 import { spawnSync } from "node:child_process"
-import { existsSync, readFileSync } from "node:fs"
+import { existsSync } from "node:fs"
 import { fileURLToPath } from "node:url"
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url))
 const SOURCE = fileURLToPath(new URL("../../caracal", import.meta.url))
-
-const pinned = JSON.parse(readFileSync(`${ROOT}package.json`, "utf8"))
-  .dependencies["@gkoos/caracal"]
 
 function run(command, args) {
   console.log(`\n$ ${command} ${args.join(" ")}`)
@@ -56,8 +58,9 @@ if (mode !== "local" && mode !== "npm") {
 }
 
 if (mode === "npm") {
-  run("npm", ["install", `@gkoos/caracal@${pinned}`, "--save-exact"])
-  console.log(`\nnow on the published package (${pinned}).`)
+  const requested = process.argv[3] ?? "latest"
+  run("npm", ["install", `@gkoos/caracal@${requested}`, "--save-exact"])
+  console.log(`\nnow on the published package (@gkoos/caracal@${requested}).`)
   process.exit(0)
 }
 

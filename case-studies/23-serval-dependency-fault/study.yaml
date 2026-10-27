@@ -1,0 +1,82 @@
+# The delegated topology while the dependency itself is failing.
+#
+# This is where the cached verdict can lose. A replica learns that the fleet opened
+# from its own settlements, so between the opening and the next authority read it
+# keeps admitting - which means a failing dependency keeps receiving traffic the
+# strict path would have refused. The size of that window is `SERVAL_FRESHNESS_MS`,
+# and the point of the study is to put a number on it rather than a reassurance.
+#
+# The window is set to 5s here, longer than the default 1s, so a 6s failure leaves
+# it visible in the witness. That is the trade the setting buys: a longer window is
+# cheaper to run and admits more while the fleet is already open.
+#
+#   npm run demo 23
+#   npm run compare 23 24     # the deviation, next to the path that does not have it
+id: "23-serval-dependency-fault"
+title: "Delegated, with the dependency failing"
+question: "How much traffic reaches a failing dependency before the cached verdict catches up?"
+
+topology:
+  policies: serval
+  scope: global
+  replicas: 4
+  env:
+    REDIS_URL: "redis://127.0.0.1:6379"
+    BULKHEAD_LIMIT: "5"
+    POLICY_TIMEOUT_MS: "2000"
+    RETRY_MAX_ATTEMPTS: "2"
+    BREAKER_MINIMUM_THROUGHPUT: "10"
+    BREAKER_FAILURE_THRESHOLD: "0.5"
+    BREAKER_OPEN_MS: "5000"
+    # The bulkhead refuses most of the offered load, and a refusal is an ignored
+    # result the breaker never sees: during the failure only ~8 attempts/s are
+    # observed. A 100-observation window therefore stays diluted by the successes
+    # from before the fault and the ratio never reaches the threshold. Ten
+    # observations is about a second of the failure, and every one of them fails.
+    BREAKER_WINDOW_SIZE: "10"
+    SERVAL_FRESHNESS_MS: "5000"   # the window this study exists to measure
+    SERVAL_VALIDITY_MS: "5000"
+    SERVAL_GRACE_MS: "5000"
+
+scenario:
+  durationMs: 20000
+  concurrency: 20
+  targetRps: 400
+  seed: 1
+  operations:
+    - { name: "orders.get", method: GET, path: "/orders/{id}", weight: 1 }
+  dependency:
+    latencyMs: 30
+    failureRate: 0
+    capacity: 8
+
+# 3s-9s: every request fails, which opens the breaker in both topologies.
+timeline:
+  - { at: 3000, action: "dependency.fail" }
+  - { at: 9000, action: "dependency.recover" }
+
+checks:
+  - { name: witnessPresent }
+  - { name: witnessSamplesAtLeast, params: { value: 200 } }
+  - { name: requestsAtLeast, params: { value: 500 } }
+  # The fleet opened, so the window this study measures is a real one.
+  - { name: breakerOpensInScopeAtLeast, params: { scope: "global", value: 1 } }
+  # The budget still holds while it admits from a stale verdict: the deviation is
+  # about *when* admissions happen, not how many run at once.
+  - { name: peakInFlightAtMost, params: { value: 5 } }
+  - { name: coordinatorRoundTripsAtMost, params: { value: 3 } }
+  # The budget this study exists to defend. halfOpenProbes is 3, so three probes
+  # are admitted per recovery window. Six is the observed ceiling: a transition
+  # discards the superseded window's tokens so they cannot consume the new
+  # window's slots, so a probe still running from the previous window overlaps the
+  # next three - and with probeLeaseTtlMs at twice openMs, at most two windows can
+  # overlap. The delegated path once reached 346 believed in flight by probing on
+  # freed slots and never closed; the peak turns that into a failure rather than a
+  # comment.
+  - { name: peakProbesAtMost, params: { value: 6 } }
+  - { name: peakProbesAtLeast, params: { value: 1 } }
+  # Recovery. Three state changes are open, half-open, closed - and this check is
+  # what caught the delegated breaker not making the third one: it opened, went
+  # half-open, started 512 probes against a configured 3, believed up to 346 were in
+  # flight, and never closed. The strict control makes all three.
+  - { name: eventCountAtLeast, params: { type: "breaker.state-changed", value: 3 } }

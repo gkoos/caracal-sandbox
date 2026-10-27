@@ -29,6 +29,7 @@ import { ndjsonSink, startObservability } from "caracal-observability"
 import {
   buildPolicies,
   createCoordinators,
+  createServalCoordinators,
   describeConfig,
   loadConfig,
 } from "./index.js"
@@ -59,17 +60,31 @@ const observability = await startObservability({
   resourceAttributes: { replica: config.replica },
 })
 
+const observer = {
+  command: (kind: "eval" | "evalsha" | "hmget") =>
+    observability.telemetry.metrics.recordCoordinatorCommand(kind),
+  error: () => observability.telemetry.metrics.recordCoordinatorError(),
+}
 const coordinators =
   config.topology === "distributed"
-    ? createCoordinators(config, config.namespace, {
-        command: (kind) =>
-          observability.telemetry.metrics.recordCoordinatorCommand(kind),
-        error: () => observability.telemetry.metrics.recordCoordinatorError(),
-      })
+    ? createCoordinators(config, config.namespace, observer)
     : undefined
-if (coordinators) {
+// The delegated fleet: one session per process, and the same strict coordinators
+// underneath as the authority. `config.replica` is stable for the process lifetime,
+// which is what makes an incarnation meaningful.
+const delegated =
+  config.topology === "serval"
+    ? createServalCoordinators(
+        config,
+        config.namespace,
+        `replica-${config.replica}`,
+        observer,
+      )
+    : undefined
+if (coordinators || delegated) {
   try {
-    await coordinators.connect()
+    await coordinators?.connect()
+    await delegated?.connect()
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     console.error(
@@ -81,7 +96,7 @@ if (coordinators) {
 }
 
 const events = ndjsonSink({ path: eventsFile })
-const policies = buildPolicies(config, coordinators)
+const policies = buildPolicies(config, coordinators, delegated)
 // The recovery ramp is application policy: the library owns the ceiling, this
 // process owns when to move it. Every replica runs one - a probe can close in
 // any of them - and compare-and-set makes concurrent ramps converge.
@@ -297,6 +312,24 @@ const server = createServer((request, response) => {
     response.writeHead(200).end("froze")
     return
   }
+  if (request.url?.startsWith("/_admin/coordinator-cut")) {
+    // What an unreachable coordinator looks like to a policy: the client is
+    // disconnected and there is no offline queue, so every coordinator call fails at
+    // once. Redis keeps its state, so this is the outage - not the data-loss case
+    // that `redis.state-loss` produces in the chaos study.
+    coordinators?.cut()
+    delegated?.cut()
+    response.writeHead(200).end("cut")
+    return
+  }
+  if (request.url?.startsWith("/_admin/coordinator-restore")) {
+    void (async () => {
+      await coordinators?.restore()
+      await delegated?.restore()
+      response.writeHead(200).end("restored")
+    })()
+    return
+  }
   void handle(request, response)
 })
 
@@ -319,7 +352,14 @@ async function shutdown(): Promise<void> {
         port: config.port,
         caracalVersion: CARACAL_VERSION,
         config: describeConfig(config),
-        coordination: coordinators ? { ...coordinators.stats } : null,
+        // Same shape as the strict row on purpose: for the delegated topology these
+        // counts include every authority read, grant and allocation, so the cost
+        // KPI is comparable across topologies rather than flattering the cache.
+        coordination: coordinators
+          ? { ...coordinators.stats }
+          : delegated
+            ? { ...delegated.stats }
+            : null,
         ramp: ramp?.snapshot() ?? null,
       },
       null,
@@ -329,6 +369,7 @@ async function shutdown(): Promise<void> {
   await events.close()
   await observability.shutdown()
   coordinators?.disconnect()
+  await delegated?.disconnect()
   await pool?.end()
   awsQueue?.client.destroy()
   server.close(() => process.exit(0))

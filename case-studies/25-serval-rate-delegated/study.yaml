@@ -1,0 +1,66 @@
+# The rate axis, delegated: the same four replicas and the same shared rate budget
+# as 12, but each replica spends a quota grant it already holds instead of asking
+# the authority for every admission.
+#
+# Claim: the dependency still sustains the shared rate, and the fleet stops paying
+# a round trip per admission for it. The deviation the delegation buys is the grant
+# itself - a grant is a chunk of the budget held inside one process, so capacity a
+# replica cannot use is stranded until its horizon lapses.
+#
+#   npm run demo 25
+#   npm run compare 12 25     # strict against delegated, same workload
+id: "25-serval-rate-delegated"
+title: "One shared rate budget, held locally"
+question: "What does a shared rate budget cost when each replica spends a grant it already holds?"
+
+topology:
+  policies: serval
+  scope: global
+  replicas: 4
+  env:
+    REDIS_URL: "redis://127.0.0.1:6379"
+    BULKHEAD_LIMIT: "20"         # non-binding: 100/s at 30ms is ~3 in flight
+    BULKHEAD_LEASE_MS: "5000"
+    RATE_LIMIT_RATE: "100"       # shared across all four replicas, as in 12
+    RATE_LIMIT_BURST: "10"       # also the size of the delegated grant
+    POLICY_TIMEOUT_MS: "2000"
+    RETRY_MAX_ATTEMPTS: "1"      # no retry: the shed rate is the signal
+    SERVAL_FRESHNESS_MS: "1000"
+    SERVAL_VALIDITY_MS: "5000"   # how long an issued grant stays spendable
+    SERVAL_GRACE_MS: "5000"
+
+scenario:
+  durationMs: 15000
+  concurrency: 20
+  targetRps: 400               # same offered load as 12, so the comparison is fair
+  seed: 1
+  operations:
+    - { name: "orders.get", method: GET, path: "/orders/{id}", weight: 1 }
+  dependency:
+    latencyMs: 30
+    failureRate: 0
+    capacity: 8
+
+checks:
+  - { name: witnessPresent }
+  - { name: witnessSamplesAtLeast, params: { value: 200 } }
+  - { name: requestsAtLeast, params: { value: 500 } }
+  # The safety claim is the same one 12 makes: delegated or not, the dependency
+  # sustains the rate budget the fleet was given, not the load it was offered.
+  - { name: dependencyRateAtMost, params: { value: 110 } }
+  # And the budget is still reachable: a topology that admitted almost nothing
+  # would satisfy the ceiling above for the wrong reason.
+  - { name: dependencyRateAtLeast, params: { value: 80 } }
+  # The surplus is shed as rate-exceeded at the client, not pushed downstream.
+  - { name: rateLimitRejectionsAtLeast, params: { reason: rate-exceeded, value: 500 } }
+  - { name: rateLimitAdmittedAtLeast, params: { value: 1000 } }
+  # Healthy dependency, healthy authority: no breaker opens.
+  - { name: breakerOpensEquals, params: { value: 0 } }
+  # The cost claim, which is the reason for the topology: 12 pays up to six
+  # commands per execution for its shared budget. A held grant should pay far less,
+  # and whatever it does pay is counted, including every issuance request.
+  - { name: coordinatorRoundTripsAtMost, params: { value: 2 } }
+  # The burst knob, from the delegated side: the peak 1s arrival rate may exceed the
+  # sustained 100/s by the grant a replica is holding, not by the fleet's four
+  # grants - which is the difference a larger grant would buy and cost.
+  - { name: dependencyPeakRateAtMost, params: { value: 120 } }

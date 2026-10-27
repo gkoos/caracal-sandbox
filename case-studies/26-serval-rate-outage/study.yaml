@@ -1,0 +1,66 @@
+# The rate axis when the authority stops answering.
+#
+# The delegated bulkhead has a middle ground for an outage: a replica keeps serving
+# from the allocation it holds and stops when that lapses (study 20). The rate
+# limiter does not, and this is why: a quota grant is a *consumable*. The authority
+# cannot be asked to reconstruct what a replica holds, and an unreachable authority
+# never invents a permit - it reports that it could not decide. So the outage
+# resolves to the policy's own `onCoordinatorError`, and this study measures both
+# answers to it: fail-open admits everything and loses the ceiling, fail-closed
+# keeps the ceiling and stops the fleet.
+#
+#   npm run demo 26
+#   npm run compare 20 26     # the bulkhead's middle ground, on the rate axis
+id: "26-serval-rate-outage"
+title: "Delegated rate limiter, with the coordinator gone"
+question: "What is left of a shared rate budget when the authority cannot answer?"
+
+topology:
+  policies: serval
+  scope: global
+  replicas: 4
+  env:
+    REDIS_URL: "redis://127.0.0.1:6379"
+    BULKHEAD_LIMIT: "20"         # non-binding: 100/s at 30ms is ~3 in flight
+    RATE_LIMIT_RATE: "100"
+    RATE_LIMIT_BURST: "10"       # also the delegated grant, and the whole offline stock
+    POLICY_TIMEOUT_MS: "2000"
+    RETRY_MAX_ATTEMPTS: "1"      # no retry: the shed rate is the signal
+    SERVAL_VALIDITY_MS: "5000"   # how long an issued grant stays spendable
+    SERVAL_GRACE_MS: "5000"
+
+scenario:
+  durationMs: 15000
+  concurrency: 20
+  targetRps: 400
+  seed: 1
+  operations:
+    - { name: "orders.get", method: GET, path: "/orders/{id}", weight: 1 }
+  dependency:
+    latencyMs: 30
+    failureRate: 0
+    capacity: 8
+
+# 4s-12s: every replica's coordinator client is disconnected, so every issuance
+# fails. Redis keeps its state - this is the outage, not the data-loss case. The
+# window is longer than the grant horizon, so the held stock is spent inside the
+# run rather than after it.
+timeline:
+  - { at: 4000, action: "redis.cut" }
+  - { at: 12000, action: "redis.restore" }
+
+checks:
+  - { name: witnessPresent }
+  - { name: witnessSamplesAtLeast, params: { value: 200 } }
+  - { name: requestsAtLeast, params: { value: 500 } }
+  # The ceiling survives the outage, and it survives it the only way it can: the
+  # permits available while the authority is gone are the grants already held, and
+  # they are part of the same budget. The fleet does not overshoot - it collapses.
+  - { name: dependencyRateAtMost, params: { value: 110 } }
+  # The outage really was a coordinator outage, and the rate limiter answered it
+  # itself rather than admitting and hoping: it reports every issuance it could not
+  # decide as a degraded call.
+  - { name: eventCountAtLeast, params: { type: "ratelimit.degraded", value: 1000 } }
+  # And the fleet kept serving from its held stock instead of refusing wholesale.
+  - { name: rateLimitAdmittedAtLeast, params: { value: 400 } }
+  - { name: breakerOpensEquals, params: { value: 0 } }
